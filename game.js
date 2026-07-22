@@ -30,6 +30,7 @@ const RAMP_INTERVAL = 5200;
 const MILE_LENGTH = 8800;
 const ARENA_LIMIT = 2100;
 const FINAL_ARENA_LIMIT = 2850;
+const BOSS_SPEED_SCALE = 0.7;
 
 const LEVELS = [
   {
@@ -1577,15 +1578,18 @@ function updateBosses(dt) {
     const turnSpeed = boss.type === "semi" ? 0.85 : 1.2;
     boss.angle = angleLerp(boss.angle, desiredAngle, 1 - Math.exp(-dt * turnSpeed));
     boss.chargeTimer -= dt;
-    const charging = boss.chargeTimer < 1.15 && boss.cooldown <= 0;
-    const bossSpeed = charging ? (boss.type === "semi" ? 1080 : 1220) : 300;
-    boss.vx = lerp(boss.vx, (dx / distance) * bossSpeed, 1 - Math.exp(-dt * (charging ? 2.8 : 1.2)));
-    boss.vy = lerp(boss.vy, (dy / distance) * bossSpeed, 1 - Math.exp(-dt * (charging ? 2.8 : 1.2)));
+    const pausingToTurn = boss.cooldown > 0;
+    const charging = boss.chargeTimer < 1.15 && !pausingToTurn;
+    const baseChargeSpeed = boss.type === "semi" ? 1080 : 1220;
+    const bossSpeed = pausingToTurn ? 0 : (charging ? baseChargeSpeed : 300) * BOSS_SPEED_SCALE;
+    const response = pausingToTurn ? 5.8 : charging ? 2.8 : 1.2;
+    boss.vx = lerp(boss.vx, (dx / distance) * bossSpeed, 1 - Math.exp(-dt * response));
+    boss.vy = lerp(boss.vy, (dy / distance) * bossSpeed, 1 - Math.exp(-dt * response));
     boss.x = clamp(boss.x + boss.vx * dt, -limit, limit);
     boss.y = clamp(boss.y + boss.vy * dt, -limit, limit);
     if (boss.chargeTimer <= 0) {
       boss.chargeTimer = 2.35 + hashNumber(Math.floor(boss.x), Math.floor(boss.y), 201) * 1.2;
-      boss.cooldown = 0.9;
+      boss.cooldown = 0.85;
     }
     if (boss.type === "semi") {
       boss.trailerAngle = angleLerp(boss.trailerAngle, boss.angle, 1 - Math.exp(-dt * 2.6));
