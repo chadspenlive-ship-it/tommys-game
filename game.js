@@ -30,42 +30,47 @@ const RAMP_INTERVAL = 5200;
 const MILE_LENGTH = 8800;
 const ARENA_LIMIT = 2100;
 const FINAL_ARENA_LIMIT = 2850;
+const CAMERA_ZOOM = 0.5;
 const BOSS_SPEED_SCALE = 0.7;
+const BOSS_TURN_SPEED_SCALE = 0.55;
+const BOSS_TURN_SWITCH_PAUSE = 1;
+const PLAYER_CAR_WIDTH = 78;
+const PLAYER_CAR_LENGTH = 170;
 
 const LEVELS = [
   {
     name: "Level 1",
-    miles: 2,
+    miles: 6,
     trafficDensity: 0.7,
     policeThreshold: 5,
-    boosts: 2,
+    boosts: 7,
     training: { pass: 0.5, curves: 1 },
     boss: { name: "Big Combine", type: "combine", hits: 3, crushes: 3, allowSideHits: true },
   },
   {
     name: "Level 2",
-    miles: 3,
+    miles: 9,
     trafficDensity: 0.8,
     policeThreshold: 5,
-    boosts: 2,
+    boosts: 8,
     training: { pass: 0.6, curves: 2 },
     boss: { name: "Big Monster Truck", type: "monster", hits: 5, crushes: 2, allowSideHits: false },
   },
   {
     name: "Level 3",
-    miles: 4,
+    miles: 12,
     trafficDensity: 0.9,
     policeThreshold: 4,
-    boosts: 2,
+    boosts: 9,
     training: { pass: 0.7, curves: 3 },
     boss: { name: "Big Bulldozer", type: "dozer", hits: 7, crushes: 2, allowSideHits: false },
   },
   {
     name: "Level 4",
-    miles: 5,
+    miles: 15,
     trafficDensity: 1,
     policeThreshold: 3,
-    boosts: 2,
+    boosts: 10,
     training: { pass: 0.8, curves: 4 },
     boss: { name: "Huge Semi-Truck", type: "semi", hits: 9, crushes: 1, allowSideHits: false },
   },
@@ -137,8 +142,8 @@ const car = {
   sensed: false,
   brakeGlow: 0,
   skid: 0,
-  width: 106,
-  length: 238,
+  width: PLAYER_CAR_WIDTH,
+  length: PLAYER_CAR_LENGTH,
   previousTouchX: null,
   previousTouchY: null,
 };
@@ -223,16 +228,34 @@ function angleDistance(a, b) {
 
 function screenToWorld(x, y) {
   return {
-    x: world.x + x - width / 2,
-    y: world.y + y - height / 2,
+    x: world.x + (x - width / 2) / CAMERA_ZOOM,
+    y: world.y + (y - height / 2) / CAMERA_ZOOM,
   };
 }
 
 function worldToScreen(x, y) {
   return {
-    x: x - world.x + width / 2,
-    y: y - world.y + height / 2,
+    x: (x - world.x) * CAMERA_ZOOM + width / 2,
+    y: (y - world.y) * CAMERA_ZOOM + height / 2,
   };
+}
+
+function getWorldHalfWidth() {
+  return width / (2 * CAMERA_ZOOM);
+}
+
+function getWorldHalfHeight() {
+  return height / (2 * CAMERA_ZOOM);
+}
+
+function getWorldViewportMax() {
+  return Math.max(width, height) / CAMERA_ZOOM;
+}
+
+function applyWorldTransform() {
+  ctx.translate(width / 2, height / 2);
+  ctx.scale(CAMERA_ZOOM, CAMERA_ZOOM);
+  ctx.translate(-world.x, -world.y);
 }
 
 function getSpeedBasePoint() {
@@ -306,11 +329,6 @@ function updateCar(dt) {
     car.x = lerp(car.x || touchState.x, touchState.x, 0.286);
     car.y = lerp(car.y || touchState.y, touchState.y, 0.286);
     car.angle = angleLerp(car.angle, touchState.angle, 0.364);
-    if (touchState.count >= 2) {
-      car.width = lerp(car.width, clamp((touchState.doorDistance + 32) * 0.7, 58, 112), 0.208);
-      car.length = lerp(car.length, car.width * 2.22, 0.208);
-    }
-
     const speedBase = getSpeedBasePoint();
     const dx = touchState.x - speedBase.x;
     const dy = touchState.y - speedBase.y;
@@ -618,8 +636,8 @@ function drawVehicleShape(vehicle, isPlayer = false) {
 
 function ensureCones() {
   const margin = 1300;
-  const minY = world.y - height / 2 - margin;
-  const maxY = world.y + height / 2 + margin;
+  const minY = world.y - getWorldHalfHeight() - margin;
+  const maxY = world.y + getWorldHalfHeight() + margin;
   const minBand = Math.floor(minY / CLOSURE_TILE_SIZE);
   const maxBand = Math.floor(maxY / CLOSURE_TILE_SIZE);
 
@@ -656,7 +674,7 @@ function ensureCones() {
   for (const [key, cone] of cones) {
     const dx = cone.x - world.x;
     const dy = cone.y - world.y;
-    const tooFar = Math.hypot(dx, dy) > Math.max(width, height) + margin * 2.2;
+    const tooFar = Math.hypot(dx, dy) > getWorldViewportMax() + margin * 2.2;
     const barelyMoving = Math.hypot(cone.vx, cone.vy) < 6;
     if (tooFar && (!cone.tipped || barelyMoving)) {
       cones.delete(key);
@@ -669,8 +687,8 @@ function ensureRoadPickups() {
     return;
   }
   const margin = 1900;
-  const minY = world.y - height / 2 - margin;
-  const maxY = world.y + height / 2 + margin;
+  const minY = world.y - getWorldHalfHeight() - margin;
+  const maxY = world.y + getWorldHalfHeight() + margin;
 
   const minRamp = Math.floor(minY / RAMP_INTERVAL);
   const maxRamp = Math.floor(maxY / RAMP_INTERVAL);
@@ -682,12 +700,12 @@ function ensureRoadPickups() {
   }
 
   for (const [key, pad] of boostPads) {
-    if (Math.hypot(pad.x - world.x, pad.y - world.y) > Math.max(width, height) + margin * 1.7) {
+    if (Math.hypot(pad.x - world.x, pad.y - world.y) > getWorldViewportMax() + margin * 1.7) {
       boostPads.delete(key);
     }
   }
   for (const [key, ramp] of ramps) {
-    if (Math.hypot(ramp.x - world.x, ramp.y - world.y) > Math.max(width, height) + margin * 1.7) {
+    if (Math.hypot(ramp.x - world.x, ramp.y - world.y) > getWorldViewportMax() + margin * 1.7) {
       ramps.delete(key);
     }
   }
@@ -723,10 +741,10 @@ function updateRoadPickups(dt) {
 
 function ensureEnvironmentObjects() {
   const margin = 1200;
-  const minX = world.x - width / 2 - margin;
-  const maxX = world.x + width / 2 + margin;
-  const minY = world.y - height / 2 - margin;
-  const maxY = world.y + height / 2 + margin;
+  const minX = world.x - getWorldHalfWidth() - margin;
+  const maxX = world.x + getWorldHalfWidth() + margin;
+  const minY = world.y - getWorldHalfHeight() - margin;
+  const maxY = world.y + getWorldHalfHeight() + margin;
   const minTileX = Math.floor(minX / LAND_TILE_SIZE);
   const maxTileX = Math.floor(maxX / LAND_TILE_SIZE);
   const minTileY = Math.floor(minY / LAND_TILE_SIZE);
@@ -776,7 +794,7 @@ function ensureEnvironmentObjects() {
 
   for (const [key, item] of environmentObjects) {
     const distance = Math.hypot(item.x - world.x, item.y - world.y);
-    if (distance > Math.max(width, height) + margin * 2.4 && Math.hypot(item.vx, item.vy) < 8) {
+    if (distance > getWorldViewportMax() + margin * 2.4 && Math.hypot(item.vx, item.vy) < 8) {
       environmentObjects.delete(key);
     }
   }
@@ -836,8 +854,8 @@ function ensureTraffic() {
     return;
   }
   const margin = 1700;
-  const minY = world.y - height / 2 - margin;
-  const maxY = world.y + height / 2 + margin;
+  const minY = world.y - getWorldHalfHeight() - margin;
+  const maxY = world.y + getWorldHalfHeight() + margin;
   const minTile = Math.floor(minY / TRAFFIC_TILE_SIZE);
   const maxTile = Math.floor(maxY / TRAFFIC_TILE_SIZE);
   const colors = ["#d94141", "#2f80ed", "#f2c94c", "#27ae60", "#f2994a", "#bb6bd9", "#dfe7ed"];
@@ -914,7 +932,7 @@ function ensureTraffic() {
   for (const [key, traffic] of trafficCars) {
     const dx = traffic.x - world.x;
     const dy = traffic.y - world.y;
-    if (Math.hypot(dx, dy) > Math.max(width, height) + margin * 1.8) {
+    if (Math.hypot(dx, dy) > getWorldViewportMax() + margin * 1.8) {
       trafficCars.delete(key);
     }
   }
@@ -1262,8 +1280,8 @@ function addSkidMarks() {
     const rearX = -Math.sin(car.angle) * car.length * 0.3 * rearSign;
     const rearY = Math.cos(car.angle) * car.length * 0.3 * rearSign;
     tireSmoke.push({
-      x: car.x + rearX + Math.random() * 58 - 29,
-      y: car.y + rearY + Math.random() * 32,
+      x: car.x + rearX * CAMERA_ZOOM + Math.random() * 36 - 18,
+      y: car.y + rearY * CAMERA_ZOOM + Math.random() * 22,
       radius: 8 + Math.random() * 12,
       age: 0,
       life: 0.75,
@@ -1277,7 +1295,7 @@ function pruneEffects(dt) {
     const mark = skidMarks[i];
     mark.age += dt;
     const distance = Math.hypot(mark.x - carWorld.x, mark.y - carWorld.y);
-    if (mark.age > mark.life || distance > Math.max(width, height) * 2.2) {
+    if (mark.age > mark.life || distance > getWorldViewportMax() * 2.2) {
       skidMarks.splice(i, 1);
     }
   }
@@ -1330,6 +1348,8 @@ function resetCarForPhase(phase) {
   car.jumpTimer = 0;
   car.jumpDuration = 0;
   car.jumpPower = 0;
+  car.width = PLAYER_CAR_WIDTH;
+  car.length = PLAYER_CAR_LENGTH;
   car.previousTouchX = null;
   car.previousTouchY = null;
   activeTouches.clear();
@@ -1501,6 +1521,9 @@ function createBoss(config, x, y, hitsOverride = null) {
     chargeTimer: 0.8,
     cooldown: 0,
     hitCooldown: 0,
+    bossCollisionCooldown: 0,
+    turnDirection: 0,
+    turnSwitchCooldown: 0,
     trailerAngle: Math.PI,
     destroyed: false,
   };
@@ -1571,14 +1594,26 @@ function updateBosses(dt) {
     }
     boss.cooldown = Math.max(0, boss.cooldown - dt);
     boss.hitCooldown = Math.max(0, boss.hitCooldown - dt);
+    boss.bossCollisionCooldown = Math.max(0, boss.bossCollisionCooldown - dt);
+    boss.turnSwitchCooldown = Math.max(0, boss.turnSwitchCooldown - dt);
     const dx = playerWorld.x - boss.x;
     const dy = playerWorld.y - boss.y;
     const distance = Math.hypot(dx, dy) || 1;
     const desiredAngle = Math.atan2(dx, -dy);
-    const turnSpeed = boss.type === "semi" ? 0.85 : 1.2;
-    boss.angle = angleLerp(boss.angle, desiredAngle, 1 - Math.exp(-dt * turnSpeed));
+    const turnDiff = ((desiredAngle - boss.angle + Math.PI) % TWO_PI) - Math.PI;
+    const turnDirection = Math.abs(turnDiff) > 0.05 ? Math.sign(turnDiff) : 0;
+    if (turnDirection && boss.turnDirection && turnDirection !== boss.turnDirection && boss.turnSwitchCooldown <= 0) {
+      boss.turnSwitchCooldown = BOSS_TURN_SWITCH_PAUSE;
+    }
+    if (turnDirection) {
+      boss.turnDirection = turnDirection;
+    }
+    if (boss.turnSwitchCooldown <= 0) {
+      const turnSpeed = (boss.type === "semi" ? 0.85 : 1.2) * BOSS_TURN_SPEED_SCALE;
+      boss.angle = angleLerp(boss.angle, desiredAngle, 1 - Math.exp(-dt * turnSpeed));
+    }
     boss.chargeTimer -= dt;
-    const pausingToTurn = boss.cooldown > 0;
+    const pausingToTurn = boss.cooldown > 0 || boss.turnSwitchCooldown > 0;
     const charging = boss.chargeTimer < 1.15 && !pausingToTurn;
     const baseChargeSpeed = boss.type === "semi" ? 1080 : 1220;
     const bossSpeed = pausingToTurn ? 0 : (charging ? baseChargeSpeed : 300) * BOSS_SPEED_SCALE;
@@ -1594,10 +1629,69 @@ function updateBosses(dt) {
     if (boss.type === "semi") {
       boss.trailerAngle = angleLerp(boss.trailerAngle, boss.angle, 1 - Math.exp(-dt * 2.6));
     }
+  }
+
+  resolveFinalBossCollisions();
+
+  for (const boss of gameState.bosses) {
     resolveBossHit(boss, playerWorld);
   }
   if (gameState.bosses.length && gameState.bosses.every((boss) => boss.destroyed)) {
     completeBossFight();
+  }
+}
+
+function damageBoss(boss, power = 1) {
+  if (boss.destroyed) {
+    return;
+  }
+  boss.hits += 1;
+  playConeHit(0.75 + clamp(power, 0, 1) * 0.25);
+  if (boss.hits >= boss.hitsNeeded) {
+    boss.destroyed = true;
+    createExplosion(boss, 1.25 + clamp(power, 0, 1) * 0.25);
+    playExplosion(1.2);
+  }
+}
+
+function resolveFinalBossCollisions() {
+  if (getCurrentLevel().boss.type !== "final") {
+    return;
+  }
+
+  const bosses = gameState.bosses.filter((boss) => !boss.destroyed);
+  for (let i = 0; i < bosses.length; i += 1) {
+    for (let j = i + 1; j < bosses.length; j += 1) {
+      const a = bosses[i];
+      const b = bosses[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const minDistance = (a.width + b.width) * 0.42 + (a.length + b.length) * 0.1;
+      if (distance >= minDistance) {
+        continue;
+      }
+
+      const nx = dx / distance;
+      const ny = dy / distance;
+      const impactSpeed = Math.hypot(a.vx - b.vx, a.vy - b.vy);
+      const push = (minDistance - distance) * 0.54;
+      a.x -= nx * push;
+      a.y -= ny * push;
+      b.x += nx * push;
+      b.y += ny * push;
+      a.vx -= nx * 210;
+      a.vy -= ny * 210;
+      b.vx += nx * 210;
+      b.vy += ny * 210;
+
+      if (impactSpeed > 330 && a.bossCollisionCooldown <= 0 && b.bossCollisionCooldown <= 0) {
+        a.bossCollisionCooldown = 1.05;
+        b.bossCollisionCooldown = 1.05;
+        damageBoss(a, clamp(impactSpeed / 900, 0.4, 1));
+        damageBoss(b, clamp(impactSpeed / 900, 0.4, 1));
+      }
+    }
   }
 }
 
@@ -1625,17 +1719,11 @@ function resolveBossHit(boss, playerWorld) {
 
   boss.hitCooldown = 0.75;
   if (weakHit) {
-    boss.hits += 1;
     boss.vx -= nx * 360;
     boss.vy -= ny * 360;
     car.vx += nx * 240;
     car.vy += ny * 240;
-    playConeHit(0.85);
-    if (boss.hits >= boss.hitsNeeded) {
-      boss.destroyed = true;
-      createExplosion(boss, 1.3);
-      playExplosion(1.2);
-    }
+    damageBoss(boss, 1);
     return;
   }
 
@@ -1717,7 +1805,7 @@ function draw() {
     drawSkidMarks(theme);
     drawCones(theme);
     drawGuidanceLights(theme);
-    drawCarShadow(theme);
+    drawPlayerCar(theme);
     drawBoostHalo();
     drawTouchPoints(theme);
     drawSmoke();
@@ -1733,7 +1821,7 @@ function draw() {
     drawBosses();
     drawExplosions(theme);
     drawGuidanceLights(theme);
-    drawCarShadow(theme);
+    drawPlayerCar(theme);
     drawBoostHalo();
     drawTouchPoints(theme);
     drawSmoke();
@@ -1755,7 +1843,7 @@ function draw() {
   drawCop(theme);
   drawExplosions(theme);
   drawGuidanceLights(theme);
-  drawCarShadow(theme);
+  drawPlayerCar(theme);
   drawBoostHalo();
   drawTouchPoints(theme);
   drawSmoke();
@@ -1968,7 +2056,7 @@ function drawCheckeredLine(y, label) {
   }
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   ctx.translate(roadCenterX(y), y);
   ctx.rotate(roadAngle(y));
   const square = 34;
@@ -1989,12 +2077,12 @@ function drawTrainingLot(theme) {
   ctx.fillStyle = theme.night > 0.55 ? "#20272a" : "#3f4648";
   ctx.fillRect(0, 0, width, height);
   ctx.save();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   const grid = 260;
-  const minX = world.x - width / 2 - grid;
-  const maxX = world.x + width / 2 + grid;
-  const minY = world.y - height / 2 - grid;
-  const maxY = world.y + height / 2 + grid;
+  const minX = world.x - getWorldHalfWidth() - grid;
+  const maxX = world.x + getWorldHalfWidth() + grid;
+  const minY = world.y - getWorldHalfHeight() - grid;
+  const maxY = world.y + getWorldHalfHeight() + grid;
   ctx.strokeStyle = "rgba(255,255,255,0.2)";
   ctx.lineWidth = 4;
   for (let x = Math.floor(minX / grid) * grid; x < maxX; x += grid) {
@@ -2016,7 +2104,7 @@ function drawTrainingLot(theme) {
 
 function drawTrainingCourse() {
   ctx.save();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   ctx.strokeStyle = "rgba(255, 211, 92, 0.34)";
   ctx.lineWidth = 18;
   ctx.lineCap = "round";
@@ -2058,7 +2146,7 @@ function drawBossArena(theme) {
   ctx.fillStyle = theme.night > 0.55 ? "#1f2729" : "#475154";
   ctx.fillRect(0, 0, width, height);
   ctx.save();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   ctx.fillStyle = "#596063";
   ctx.beginPath();
   ctx.arc(0, 0, limit + 220, 0, TWO_PI);
@@ -2084,7 +2172,7 @@ function drawBossArena(theme) {
 
 function drawBosses() {
   ctx.save();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   for (const boss of gameState.bosses) {
     if (boss.destroyed) {
       continue;
@@ -2168,8 +2256,27 @@ function drawBoostHalo() {
     return;
   }
   const t = performance.now() * 0.008;
+  const pulse = 0.5 + Math.sin(t * 1.4) * 0.5;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.shadowColor = "rgba(255, 211, 92, 0.92)";
+  ctx.shadowBlur = 36 + pulse * 34;
+  ctx.strokeStyle = `rgba(255, 211, 92, ${0.32 + pulse * 0.24})`;
+  ctx.lineWidth = 18 + pulse * 10;
+  ctx.strokeRect(10, 10, width - 20, height - 20);
+
+  const edge = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.26, width / 2, height / 2, Math.max(width, height) * 0.72);
+  edge.addColorStop(0, "rgba(255, 211, 92, 0)");
+  edge.addColorStop(0.72, `rgba(49, 211, 255, ${0.05 + pulse * 0.06})`);
+  edge.addColorStop(1, `rgba(255, 211, 92, ${0.2 + pulse * 0.12})`);
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+
   ctx.save();
   ctx.translate(car.x, car.y);
+  ctx.scale(CAMERA_ZOOM, CAMERA_ZOOM);
   ctx.rotate(car.angle);
   ctx.lineWidth = 5;
   for (let i = 0; i < 4; i += 1) {
@@ -2210,16 +2317,16 @@ function drawGround(theme) {
   ctx.fillRect(0, 0, width, height);
 
   const blade = 64;
-  const minX = world.x - width / 2 - blade;
-  const maxX = world.x + width / 2 + blade;
-  const minY = world.y - height / 2 - blade;
-  const maxY = world.y + height / 2 + blade;
+  const minX = world.x - getWorldHalfWidth() - blade;
+  const maxX = world.x + getWorldHalfWidth() + blade;
+  const minY = world.y - getWorldHalfHeight() - blade;
+  const maxY = world.y + getWorldHalfHeight() + blade;
   const startX = Math.floor(minX / blade) * blade;
   const startY = Math.floor(minY / blade) * blade;
 
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   for (let x = startX; x <= maxX; x += blade) {
     for (let y = startY; y <= maxY; y += blade) {
       const shade = hashNumber(Math.floor(x / blade), Math.floor(y / blade), 77);
@@ -2248,15 +2355,15 @@ function drawGround(theme) {
 
 function drawInterstate(theme) {
   const step = 42;
-  const minY = world.y - height / 2 - 220;
-  const maxY = world.y + height / 2 + 220;
+  const minY = world.y - getWorldHalfHeight() - 220;
+  const maxY = world.y + getWorldHalfHeight() + 220;
   const startY = Math.floor(minY / step) * step;
   const edgeAlpha = 0.74 - theme.night * 0.12;
   const laneAlpha = 0.68 - theme.night * 0.08;
 
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
 
   ctx.beginPath();
   for (let y = startY; y <= maxY; y += step) {
@@ -2338,7 +2445,7 @@ function drawInterstate(theme) {
 function drawRoadPickups(theme) {
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
 
   for (const pad of boostPads.values()) {
     if (pad.used) {
@@ -2410,8 +2517,8 @@ function drawRoadPickups(theme) {
     ctx.restore();
   }
 
-  const minY = world.y - height / 2 - 600;
-  const maxY = world.y + height / 2 + 600;
+  const minY = world.y - getWorldHalfHeight() - 600;
+  const maxY = world.y + getWorldHalfHeight() + 600;
   for (let band = Math.floor(minY / TUNNEL_INTERVAL) - 1; band <= Math.floor(maxY / TUNNEL_INTERVAL) + 1; band += 1) {
     const start = tunnelStartForBand(band);
     for (const portalY of [start, start + TUNNEL_LENGTH]) {
@@ -2450,16 +2557,16 @@ function drawTunnelOverlay(theme) {
 
 function drawHills(theme) {
   const grid = 96;
-  const minX = world.x - width / 2 - grid;
-  const maxX = world.x + width / 2 + grid;
-  const minY = world.y - height / 2 - grid;
-  const maxY = world.y + height / 2 + grid;
+  const minX = world.x - getWorldHalfWidth() - grid;
+  const maxX = world.x + getWorldHalfWidth() + grid;
+  const minY = world.y - getWorldHalfHeight() - grid;
+  const maxY = world.y + getWorldHalfHeight() + grid;
   const startX = Math.floor(minX / grid) * grid;
   const startY = Math.floor(minY / grid) * grid;
 
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   ctx.globalCompositeOperation = "overlay";
   for (let x = startX; x <= maxX; x += grid) {
     for (let y = startY; y <= maxY; y += grid) {
@@ -2475,7 +2582,7 @@ function drawHills(theme) {
 function drawEnvironmentObjects(theme) {
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
 
   for (const item of environmentObjects.values()) {
     const screen = worldToScreen(item.x, item.y);
@@ -2564,7 +2671,7 @@ function drawCop(theme) {
 
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   ctx.translate(cop.x, cop.y);
   ctx.rotate(cop.angle);
   drawVehicleShape(cop, false);
@@ -2594,7 +2701,7 @@ function drawCop(theme) {
 function drawSkidMarks(theme) {
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
   ctx.lineCap = "round";
   for (const mark of skidMarks) {
     const fade = 1 - mark.age / mark.life;
@@ -2614,7 +2721,7 @@ function drawSkidMarks(theme) {
 function drawCones(theme) {
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
 
   for (const cone of cones.values()) {
     const screen = worldToScreen(cone.x, cone.y);
@@ -2666,7 +2773,7 @@ function drawCones(theme) {
 function drawTraffic(theme) {
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
 
   for (const traffic of trafficCars.values()) {
     const screen = worldToScreen(traffic.x, traffic.y);
@@ -2699,7 +2806,7 @@ function drawTraffic(theme) {
 function drawExplosions(theme) {
   ctx.save();
   applyWorldJumpTransform();
-  ctx.translate(width / 2 - world.x, height / 2 - world.y);
+  applyWorldTransform();
 
   for (const boom of explosions) {
     const fade = 1 - boom.age / boom.life;
@@ -2720,6 +2827,7 @@ function drawGuidanceLights(theme) {
 
   ctx.save();
   ctx.translate(car.x, car.y);
+  ctx.scale(CAMERA_ZOOM, CAMERA_ZOOM);
   ctx.rotate(car.angle);
 
   const front = -car.length * 0.36;
@@ -2749,36 +2857,66 @@ function drawGuidanceLights(theme) {
   ctx.restore();
 }
 
-function drawCarShadow(theme) {
-  const shadowAlpha = car.sensed ? 0.28 : 0.46;
-  const hillTilt = world.hill * 4;
+function drawPlayerCar(theme) {
+  const hillTilt = world.hill * 4 * CAMERA_ZOOM;
   const w = car.width;
   const h = car.length;
 
   ctx.save();
   ctx.translate(car.x, car.y + hillTilt);
+  ctx.scale(CAMERA_ZOOM, CAMERA_ZOOM);
   ctx.rotate(car.angle);
 
-  ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
-  roundedRect(-w * 0.54, -h * 0.5, w * 1.08, h, w * 0.22);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.26)";
+  ctx.beginPath();
+  ctx.ellipse(7, h * 0.06, w * 0.62, h * 0.5, 0.04, 0, TWO_PI);
   ctx.fill();
 
-  ctx.fillStyle = car.sensed ? "rgba(18, 31, 40, 0.2)" : "rgba(4, 8, 11, 0.3)";
-  roundedRect(-w * 0.42, -h * 0.43, w * 0.84, h * 0.86, w * 0.2);
+  ctx.fillStyle = "#16191b";
+  for (const x of [-w * 0.52, w * 0.52]) {
+    roundedRect(x - w * 0.11, -h * 0.32, w * 0.22, h * 0.22, 7);
+    roundedRect(x - w * 0.11, h * 0.18, w * 0.22, h * 0.24, 7);
+    ctx.fill();
+  }
+
+  const bodyRed = Math.round(car.sensed ? 230 : 210);
+  ctx.fillStyle = `rgb(${bodyRed}, 24, 26)`;
+  roundedRect(-w * 0.46, -h * 0.48, w * 0.92, h * 0.96, w * 0.2);
   ctx.fill();
 
-  ctx.fillStyle = `rgba(255, 246, 184, ${0.62 + theme.night * 0.32})`;
-  roundedRect(-w * 0.32, -h * 0.53, w * 0.18, h * 0.055, 6);
+  ctx.fillStyle = "#f53a2f";
+  roundedRect(-w * 0.34, -h * 0.56, w * 0.68, h * 0.28, w * 0.16);
+  roundedRect(-w * 0.38, h * 0.24, w * 0.76, h * 0.25, w * 0.14);
   ctx.fill();
-  roundedRect(w * 0.14, -h * 0.53, w * 0.18, h * 0.055, 6);
+
+  ctx.fillStyle = "rgba(185, 232, 250, 0.72)";
+  roundedRect(-w * 0.25, -h * 0.22, w * 0.5, h * 0.19, 10);
+  roundedRect(-w * 0.27, h * 0.06, w * 0.54, h * 0.19, 10);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffd61f";
+  roundedRect(-w * 0.08, -h * 0.43, w * 0.16, h * 0.22, 5);
+  ctx.fill();
+  ctx.fillStyle = "#f8c400";
+  roundedRect(-w * 0.38, -h * 0.05, w * 0.15, h * 0.21, 5);
+  roundedRect(w * 0.23, -h * 0.05, w * 0.15, h * 0.21, 5);
+  ctx.fill();
+  ctx.fillStyle = "#b91518";
+  ctx.font = "900 22px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("7", 0, -h * 0.32);
+
+  ctx.fillStyle = `rgba(255, 246, 184, ${0.72 + theme.night * 0.25})`;
+  roundedRect(-w * 0.32, -h * 0.54, w * 0.18, h * 0.055, 6);
+  roundedRect(w * 0.14, -h * 0.54, w * 0.18, h * 0.055, 6);
   ctx.fill();
 
   const red = Math.round(110 + car.brakeGlow * 145);
   ctx.fillStyle = `rgb(${red}, 18, 18)`;
   ctx.shadowColor = `rgba(255, 0, 0, ${0.35 + car.brakeGlow * 0.55})`;
-  ctx.shadowBlur = 18 + car.brakeGlow * 34;
+  ctx.shadowBlur = 12 + car.brakeGlow * 26;
   roundedRect(-w * 0.32, h * 0.475, w * 0.18, h * 0.055, 6);
-  ctx.fill();
   roundedRect(w * 0.14, h * 0.475, w * 0.18, h * 0.055, 6);
   ctx.fill();
   ctx.shadowBlur = 0;
