@@ -598,7 +598,7 @@ function addWantedStar() {
   wantedStars = Math.min(5, wantedStars + 1);
   explodedCarCount = wantedStars;
   const threshold = getCurrentLevel().policeThreshold;
-  if (isRacePhase() && wantedStars >= threshold && !cop.active && !cop.pending) {
+  if ((isRacePhase() || gameState.phase === "mission") && wantedStars >= threshold && !cop.active && !cop.pending) {
     startCopChase();
   }
 }
@@ -1512,6 +1512,9 @@ function startMission(id) {
   resetCarForPhase("mission");
   setControlBaseMode("bottom");
   panModeIndex = 3;
+  wantedStars = 0;
+  explodedCarCount = 0;
+  gameState.policeCalled = false;
   world.x = mission.home.x - (car.x - width / 2) / CAMERA_ZOOM;
   world.y = mission.home.y - (car.y - height / 2) / CAMERA_ZOOM;
   gameState.activeMissionId = mission.id;
@@ -1520,6 +1523,16 @@ function startMission(id) {
   gameState.missionNoticeTimer = 0;
   gameState.missionCartProgress = 0;
   setPhase("mission", mission.title, "Drive to the grocery pickup lot.");
+}
+
+function failMission() {
+  activeTouches.clear();
+  car.vx *= 0.2;
+  car.vy *= 0.2;
+  cop.active = false;
+  cop.pending = false;
+  cop.pendingTimer = 0;
+  setPhase("missionFail", "Mission Failed", "You got busted before the groceries made it home.");
 }
 
 function constrainMissionDriving() {
@@ -1531,6 +1544,11 @@ function constrainMissionDriving() {
 }
 
 function updateMission(dt) {
+  if (gameState.policeCalled) {
+    failMission();
+    return;
+  }
+
   const mission = getActiveMission();
   const playerWorld = getPlayerWorld();
   const lotDistance = Math.hypot(playerWorld.x - mission.lot.x, playerWorld.y - mission.lot.y);
@@ -2025,7 +2043,7 @@ function draw() {
     return;
   }
 
-  if (gameState.phase === "mission" || gameState.phase === "missionComplete") {
+  if (gameState.phase === "mission" || gameState.phase === "missionComplete" || gameState.phase === "missionFail") {
     drawMissionScene(theme);
     drawSkidMarks(theme);
     drawGuidanceLights(theme);
@@ -2275,7 +2293,7 @@ function drawOverlayButton(label, centerX, centerY, buttonWidth, buttonHeight, a
 }
 
 function drawModalOverlay() {
-  if (!["trainingIntro", "trainingFail", "bossIntro", "levelComplete", "gameComplete", "crushed", "missionComplete"].includes(gameState.phase)) {
+  if (!["trainingIntro", "trainingFail", "bossIntro", "levelComplete", "gameComplete", "crushed", "missionComplete", "missionFail"].includes(gameState.phase)) {
     return;
   }
   const buttonLabel = {
@@ -2286,6 +2304,7 @@ function drawModalOverlay() {
     gameComplete: "Play Again",
     crushed: "Try Again",
     missionComplete: "Missions",
+    missionFail: "Try Again",
   }[gameState.phase];
   ctx.save();
   ctx.fillStyle = "rgba(0, 0, 0, 0.58)";
@@ -3720,6 +3739,8 @@ function handleOverlayAction(action = "overlay") {
   } else if (gameState.phase === "missionComplete") {
     gameState.missionMenuScroll = 0;
     setPhase("missionMenu");
+  } else if (gameState.phase === "missionFail") {
+    startMission(gameState.activeMissionId || "grocery");
   }
 }
 
@@ -3998,7 +4019,8 @@ function loop(now) {
   updateGame(dt);
   draw();
   speedText.textContent = car.speed < -8 ? `R ${Math.round(Math.abs(car.speed) / 8)}` : `${Math.round(Math.abs(car.speed) / 8)}`;
-  wantedText.textContent = isRacePhase() ? `${"*".repeat(wantedStars)}${"-".repeat(5 - wantedStars)}` : "-----";
+  const showWanted = isRacePhase() || gameState.phase === "mission";
+  wantedText.textContent = showWanted ? `${"*".repeat(wantedStars)}${"-".repeat(5 - wantedStars)}` : "-----";
   requestAnimationFrame(loop);
 }
 
