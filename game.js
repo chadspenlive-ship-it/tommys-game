@@ -96,11 +96,26 @@ let speedBaseMode = "center";
 let explodedCarCount = 0;
 let wantedStars = 0;
 let overlayButton = null;
+let overlayButtons = [];
+let missionMenuDrag = null;
 const PAN_MODES = [
   { label: "Pan Off", value: 0 },
   { label: "Pan Half", value: 0.5 },
   { label: "Pan On", value: 1 },
   { label: "Pan Speed", value: "speed" },
+];
+
+const MISSIONS = [
+  {
+    id: "grocery",
+    title: "Grocery Pickup",
+    subtitle: "Exit the highway, park at stall 7, load up, and return home.",
+    stallNumber: 7,
+    home: { x: 0, y: 720 },
+    store: { x: 1040, y: -4200 },
+    lot: { x: 1040, y: -3760 },
+    exitY: -3060,
+  },
 ];
 
 const gameState = {
@@ -121,6 +136,12 @@ const gameState = {
   bossIntroSeen: false,
   playerBossHits: 0,
   levelCompleteText: "",
+  missionMenuScroll: 0,
+  activeMissionId: null,
+  missionStep: "none",
+  missionStall: 0,
+  missionNoticeTimer: 0,
+  missionCartProgress: 0,
 };
 
 const car = {
@@ -206,7 +227,7 @@ function isRacePhase() {
 }
 
 function isDrivingPhase() {
-  return gameState.phase === "race" || gameState.phase === "training" || gameState.phase === "boss";
+  return gameState.phase === "race" || gameState.phase === "training" || gameState.phase === "boss" || gameState.phase === "mission";
 }
 
 function setControlBaseMode(mode) {
@@ -582,6 +603,32 @@ function addWantedStar() {
   }
 }
 
+function drawWheel(x, y, rx, ry, rotation = 0, hubColor = "#6d7478") {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  ctx.fillStyle = "#111416";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, TWO_PI);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.16)";
+  ctx.lineWidth = Math.max(3, Math.min(rx, ry) * 0.13);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.13)";
+  ctx.lineWidth = 3;
+  for (let t = -0.55; t <= 0.56; t += 0.28) {
+    ctx.beginPath();
+    ctx.moveTo(-rx * 0.78, t * ry);
+    ctx.lineTo(rx * 0.78, t * ry);
+    ctx.stroke();
+  }
+  ctx.fillStyle = hubColor;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx * 0.38, ry * 0.38, 0, 0, TWO_PI);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawVehicleShape(vehicle, isPlayer = false) {
   const w = vehicle.width;
   const h = vehicle.length;
@@ -589,17 +636,33 @@ function drawVehicleShape(vehicle, isPlayer = false) {
   roundedRect(-w * 0.55 + 6, -h * 0.5 + 8, w * 1.1, h, w * 0.18);
   ctx.fill();
 
+  const wheelY = vehicle.personality === "tractor" ? [-h * 0.25, h * 0.3] : [-h * 0.3, h * 0.31];
+  for (const x of [-w * 0.52, w * 0.52]) {
+    for (const y of wheelY) {
+      const rearScale = y > 0 && vehicle.personality === "tractor" ? 1.35 : 1;
+      drawWheel(x, y, w * 0.11 * rearScale, h * 0.11 * rearScale, 0, "#697176");
+    }
+  }
+
   const body = isPlayer ? "rgba(18, 31, 40, 0.24)" : vehicle.color;
   ctx.fillStyle = body;
-  roundedRect(-w * 0.5, -h * 0.5, w, h, w * 0.18);
+  roundedRect(-w * 0.46, -h * 0.5, w * 0.92, h, w * 0.17);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255,255,255,0.16)";
+  roundedRect(-w * 0.34, -h * 0.48, w * 0.68, h * 0.16, w * 0.1);
+  ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  roundedRect(-w * 0.36, h * 0.2, w * 0.72, h * 0.22, w * 0.1);
   ctx.fill();
 
   if (vehicle.personality === "sweeper") {
     ctx.fillStyle = "#f2a93b";
-    ctx.fillRect(-w * 0.42, -h * 0.48, w * 0.84, h * 0.18);
+    roundedRect(-w * 0.52, -h * 0.58, w * 1.04, h * 0.18, 10);
+    ctx.fill();
     ctx.strokeStyle = "rgba(20,20,20,0.55)";
     ctx.lineWidth = 5;
-    for (let x = -w * 0.42; x <= w * 0.42; x += 13) {
+    for (let x = -w * 0.48; x <= w * 0.48; x += 13) {
       ctx.beginPath();
       ctx.moveTo(x, -h * 0.58);
       ctx.lineTo(x + 8, -h * 0.44);
@@ -607,19 +670,30 @@ function drawVehicleShape(vehicle, isPlayer = false) {
     }
   } else if (vehicle.personality === "tractor") {
     ctx.fillStyle = "#20251e";
+    roundedRect(-w * 0.36, h * 0.14, w * 0.72, h * 0.25, 8);
+    ctx.fill();
+    ctx.fillStyle = "#f0c13e";
     ctx.beginPath();
-    ctx.arc(-w * 0.42, h * 0.28, w * 0.22, 0, TWO_PI);
-    ctx.arc(w * 0.42, h * 0.28, w * 0.22, 0, TWO_PI);
+    ctx.arc(0, -h * 0.3, w * 0.16, 0, TWO_PI);
     ctx.fill();
   } else if (vehicle.personality === "minivan") {
     ctx.fillStyle = "rgba(255,255,255,0.22)";
     ctx.fillRect(-w * 0.42, -h * 0.08, w * 0.84, h * 0.07);
+    ctx.fillRect(-w * 0.42, h * 0.16, w * 0.84, h * 0.07);
   }
 
   ctx.fillStyle = isPlayer ? "rgba(255,255,255,0.22)" : "rgba(215, 239, 247, 0.58)";
-  roundedRect(-w * 0.34, -h * 0.22, w * 0.68, h * 0.2, w * 0.12);
-  roundedRect(-w * 0.32, h * 0.08, w * 0.64, h * 0.2, w * 0.12);
+  roundedRect(-w * 0.31, -h * 0.2, w * 0.62, h * 0.18, w * 0.1);
+  roundedRect(-w * 0.31, h * 0.05, w * 0.62, h * 0.18, w * 0.1);
   ctx.fill();
+  ctx.strokeStyle = "rgba(23, 42, 52, 0.34)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.3, -h * 0.01);
+  ctx.lineTo(w * 0.3, -h * 0.01);
+  ctx.moveTo(-w * 0.3, h * 0.26);
+  ctx.lineTo(w * 0.3, h * 0.26);
+  ctx.stroke();
 
   ctx.fillStyle = "rgba(255, 246, 184, 0.86)";
   roundedRect(-w * 0.32, -h * 0.53, w * 0.18, h * 0.055, 6);
@@ -1408,6 +1482,90 @@ function startLevel(index) {
   setPhase("race");
 }
 
+function getActiveMission() {
+  return MISSIONS.find((mission) => mission.id === gameState.activeMissionId) || MISSIONS[0];
+}
+
+function getMissionStallPosition(mission = getActiveMission()) {
+  const index = Math.max(0, (gameState.missionStall || mission.stallNumber) - 1);
+  const col = index % 4;
+  const row = Math.floor(index / 4);
+  return {
+    x: mission.lot.x - 270 + col * 180,
+    y: mission.lot.y + 120 + row * 210,
+  };
+}
+
+function getMissionCartPosition(mission = getActiveMission()) {
+  const stall = getMissionStallPosition(mission);
+  const start = { x: mission.store.x - 220, y: mission.store.y + 190 };
+  const t = clamp(gameState.missionCartProgress, 0, 1);
+  return {
+    x: lerp(start.x, stall.x, t),
+    y: lerp(start.y, stall.y, t),
+  };
+}
+
+function startMission(id) {
+  const mission = MISSIONS.find((item) => item.id === id) || MISSIONS[0];
+  clearWorldObjects();
+  resetCarForPhase("mission");
+  setControlBaseMode("bottom");
+  panModeIndex = 3;
+  world.x = mission.home.x - (car.x - width / 2) / CAMERA_ZOOM;
+  world.y = mission.home.y - (car.y - height / 2) / CAMERA_ZOOM;
+  gameState.activeMissionId = mission.id;
+  gameState.missionStep = "driveToStore";
+  gameState.missionStall = mission.stallNumber;
+  gameState.missionNoticeTimer = 0;
+  gameState.missionCartProgress = 0;
+  setPhase("mission", mission.title, "Drive to the grocery pickup lot.");
+}
+
+function constrainMissionDriving() {
+  const playerWorld = getPlayerWorld();
+  const clampedX = clamp(playerWorld.x, -820, 1720);
+  const clampedY = clamp(playerWorld.y, -4880, 1050);
+  world.x += clampedX - playerWorld.x;
+  world.y += clampedY - playerWorld.y;
+}
+
+function updateMission(dt) {
+  const mission = getActiveMission();
+  const playerWorld = getPlayerWorld();
+  const lotDistance = Math.hypot(playerWorld.x - mission.lot.x, playerWorld.y - mission.lot.y);
+  const stall = getMissionStallPosition(mission);
+  const stallDistance = Math.hypot(playerWorld.x - stall.x, playerWorld.y - stall.y);
+  const homeDistance = Math.hypot(playerWorld.x - mission.home.x, playerWorld.y - mission.home.y);
+
+  if (gameState.missionStep === "driveToStore" && lotDistance < 520) {
+    gameState.missionStep = "findStall";
+    gameState.missionNoticeTimer = 2.6;
+  } else if (gameState.missionStep === "findStall" && stallDistance < 95 && Math.abs(car.speed) < 210) {
+    gameState.missionStep = "loading";
+    gameState.missionCartProgress = 0;
+    gameState.missionNoticeTimer = 1.7;
+    car.vx *= 0.35;
+    car.vy *= 0.35;
+  } else if (gameState.missionStep === "loading") {
+    gameState.missionCartProgress = clamp(gameState.missionCartProgress + dt * 0.34, 0, 1);
+    const cart = getMissionCartPosition(mission);
+    const cartDistance = Math.hypot(playerWorld.x - cart.x, playerWorld.y - cart.y);
+    if (cartDistance < 92 || (gameState.missionCartProgress >= 1 && stallDistance < 130)) {
+      gameState.missionStep = "returnHome";
+      gameState.missionNoticeTimer = 2.4;
+      playConeHit(0.9);
+    }
+  } else if (gameState.missionStep === "returnHome" && homeDistance < 150) {
+    activeTouches.clear();
+    car.vx *= 0.2;
+    car.vy *= 0.2;
+    setPhase("missionComplete", "Mission Complete!", "Groceries are back at home base.");
+  }
+
+  gameState.missionNoticeTimer = Math.max(0, gameState.missionNoticeTimer - dt);
+}
+
 function finishRace() {
   activeTouches.clear();
   car.vx *= 0.25;
@@ -1497,10 +1655,10 @@ function startBossIntro() {
 
 function createBoss(config, x, y, hitsOverride = null) {
   const sizes = {
-    combine: { width: 260, length: 360, color: "#d98b27" },
-    monster: { width: 260, length: 330, color: "#6538b8" },
-    dozer: { width: 270, length: 340, color: "#d4a124" },
-    semi: { width: 210, length: 520, color: "#c93f3f" },
+    combine: { width: 260, length: 360, color: "#d98b27", collisionWidth: 300, collisionLength: 430, collisionOffsetY: -28, bumpAwaySpeed: 380 },
+    monster: { width: 260, length: 330, color: "#6538b8", collisionWidth: 400, collisionLength: 390, collisionOffsetY: 0, bumpAwaySpeed: 430 },
+    dozer: { width: 270, length: 340, color: "#d4a124", collisionWidth: 350, collisionLength: 400, collisionOffsetY: -22, bumpAwaySpeed: 460 },
+    semi: { width: 210, length: 520, color: "#c93f3f", collisionWidth: 250, collisionLength: 690, collisionOffsetY: 82, bumpAwaySpeed: 500 },
   };
   const size = sizes[config.type] || sizes.combine;
   return {
@@ -1513,6 +1671,10 @@ function createBoss(config, x, y, hitsOverride = null) {
     angle: Math.PI,
     width: size.width,
     length: size.length,
+    collisionWidth: size.collisionWidth,
+    collisionLength: size.collisionLength,
+    collisionOffsetY: size.collisionOffsetY,
+    bumpAwaySpeed: size.bumpAwaySpeed,
     color: size.color,
     hits: 0,
     hitsNeeded: hitsOverride || config.hits,
@@ -1634,7 +1796,7 @@ function updateBosses(dt) {
   resolveFinalBossCollisions();
 
   for (const boss of gameState.bosses) {
-    resolveBossHit(boss, playerWorld);
+    resolveBossHit(boss, getPlayerWorld());
   }
   if (gameState.bosses.length && gameState.bosses.every((boss) => boss.destroyed)) {
     completeBossFight();
@@ -1695,41 +1857,90 @@ function resolveFinalBossCollisions() {
   }
 }
 
-function resolveBossHit(boss, playerWorld) {
-  if (boss.destroyed || boss.hitCooldown > 0 || getJumpHeight() > 25) {
-    return;
-  }
+function getBossPlayerCollision(boss, playerWorld) {
   const dx = playerWorld.x - boss.x;
   const dy = playerWorld.y - boss.y;
-  const distance = Math.hypot(dx, dy) || 1;
-  const minDistance = (boss.width + car.width) * 0.45 + (boss.length + car.length) * 0.13;
-  if (distance > minDistance) {
+  const cos = Math.cos(boss.angle);
+  const sin = Math.sin(boss.angle);
+  const localX = dx * cos + dy * sin;
+  const localY = dx * -sin + dy * cos;
+  const collisionLocalY = localY - (boss.collisionOffsetY || 0);
+  const halfWidth = (boss.collisionWidth || boss.width) * 0.5 + car.width * 0.54;
+  const halfLength = (boss.collisionLength || boss.length) * 0.5 + car.length * 0.5;
+  const overlapX = halfWidth - Math.abs(localX);
+  const overlapY = halfLength - Math.abs(collisionLocalY);
+
+  if (overlapX <= 0 || overlapY <= 0) {
+    return null;
+  }
+
+  let localNormalX = 0;
+  let localNormalY = 0;
+  let overlap = overlapY;
+  if (overlapX < overlapY) {
+    localNormalX = localX >= 0 ? 1 : -1;
+    overlap = overlapX;
+  } else {
+    localNormalY = collisionLocalY >= 0 ? 1 : -1;
+  }
+
+  return {
+    localX,
+    localY,
+    nx: localNormalX * cos - localNormalY * sin,
+    ny: localNormalX * sin + localNormalY * cos,
+    overlap,
+  };
+}
+
+function separatePlayerFromBoss(boss, collision) {
+  const separation = collision.overlap + 8;
+  world.x += collision.nx * separation;
+  world.y += collision.ny * separation;
+
+  const playerAwaySpeed = car.vx * collision.nx + car.vy * collision.ny;
+  const bossAwaySpeed = boss.vx * collision.nx + boss.vy * collision.ny;
+  const shoveSpeed = (boss.bumpAwaySpeed || 420) + clamp(collision.overlap / 120, 0, 1) * 240 + Math.max(0, bossAwaySpeed) * 0.3;
+  const impulse = Math.max(0, shoveSpeed - playerAwaySpeed) * 0.7;
+  car.vx += collision.nx * impulse;
+  car.vy += collision.ny * impulse;
+  car.skid = Math.max(car.skid, 0.55);
+  car.brakeGlow = Math.max(car.brakeGlow, 0.55);
+}
+
+function resolveBossHit(boss, playerWorld) {
+  if (boss.destroyed || getJumpHeight() > 25) {
+    return;
+  }
+  const collision = getBossPlayerCollision(boss, playerWorld);
+  if (!collision) {
     return;
   }
 
-  const localX = dx * Math.cos(boss.angle) + dy * Math.sin(boss.angle);
-  const localY = dx * -Math.sin(boss.angle) + dy * Math.cos(boss.angle);
+  separatePlayerFromBoss(boss, collision);
+  if (boss.hitCooldown > 0) {
+    return;
+  }
+
   const speedAbs = Math.abs(car.speed);
-  const backHit = localY > boss.length * 0.18;
-  const sideHit = boss.allowSideHits && Math.abs(localX) > boss.width * 0.54;
+  const backHit = collision.localY > boss.length * 0.18;
+  const sideHit = boss.allowSideHits && Math.abs(collision.localX) > boss.width * 0.54;
   const strongEnough = speedAbs > 155 || Math.hypot(car.vx - boss.vx, car.vy - boss.vy) > 420;
   const weakHit = strongEnough && (backHit || sideHit);
-  const nx = dx / distance;
-  const ny = dy / distance;
 
   boss.hitCooldown = 0.75;
   if (weakHit) {
-    boss.vx -= nx * 360;
-    boss.vy -= ny * 360;
-    car.vx += nx * 240;
-    car.vy += ny * 240;
+    boss.vx -= collision.nx * 360;
+    boss.vy -= collision.ny * 360;
+    car.vx += collision.nx * 240;
+    car.vy += collision.ny * 240;
     damageBoss(boss, 1);
     return;
   }
 
   gameState.playerBossHits += 1;
-  car.vx += nx * 720;
-  car.vy += ny * 720;
+  car.vx += collision.nx * 720;
+  car.vy += collision.ny * 720;
   car.skid = 1;
   car.brakeGlow = 1;
   playConeHit(1);
@@ -1781,6 +1992,14 @@ function updateGame(dt) {
     return;
   }
 
+  if (gameState.phase === "mission") {
+    updateCar(dt);
+    constrainMissionDriving();
+    updateMission(dt);
+    pruneEffects(dt);
+    return;
+  }
+
   car.targetSpeed = 0;
   car.speed *= Math.exp(-dt * 2.5);
   car.vx *= Math.exp(-dt * 2.5);
@@ -1792,9 +2011,30 @@ function updateGame(dt) {
 function draw() {
   const theme = getTheme();
   overlayButton = null;
+  overlayButtons = [];
   if (gameState.phase === "start") {
     drawStartScene(theme);
     drawStartOverlay();
+    drawFade();
+    return;
+  }
+
+  if (gameState.phase === "missionMenu") {
+    drawMissionMenu(theme);
+    drawFade();
+    return;
+  }
+
+  if (gameState.phase === "mission" || gameState.phase === "missionComplete") {
+    drawMissionScene(theme);
+    drawSkidMarks(theme);
+    drawGuidanceLights(theme);
+    drawPlayerCar(theme);
+    drawBoostHalo();
+    drawTouchPoints(theme);
+    drawSmoke();
+    drawMissionHud();
+    drawModalOverlay();
     drawFade();
     return;
   }
@@ -1908,30 +2148,125 @@ function drawStartOverlay() {
   ctx.fillStyle = "#ffd35c";
   ctx.font = `800 ${Math.min(28, width * 0.055)}px Arial, Helvetica, sans-serif`;
   ctx.fillText("Five levels. Fast roads. Big bosses.", width / 2, height * 0.33);
-  drawOverlayButton("Start!", width / 2, height * 0.64, Math.min(310, width - 64), 88);
+  const buttonWidth = Math.min(330, width - 64);
+  drawOverlayButton("Start Game", width / 2, height * 0.58, buttonWidth, 76, "startGame");
+  drawOverlayButton("Missions", width / 2, height * 0.72, buttonWidth, 76, "missionMenu", {
+    fill: "#58d6ff",
+    text: "#10202a",
+  });
   ctx.restore();
 }
 
-function drawOverlayButton(label, centerX, centerY, buttonWidth, buttonHeight) {
-  overlayButton = {
+function drawMissionMenu(theme) {
+  drawGround(theme);
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.38)";
+  ctx.fillRect(0, 0, width, height);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `900 ${Math.min(54, width * 0.095)}px Arial, Helvetica, sans-serif`;
+  ctx.fillText("Side Missions", width / 2, 82);
+  ctx.fillStyle = "#ffd35c";
+  ctx.font = `800 ${Math.min(23, width * 0.044)}px Arial, Helvetica, sans-serif`;
+  ctx.fillText("Pick a bonus adventure", width / 2, 122);
+
+  const columns = width < 760 ? 1 : 2;
+  const gap = 18;
+  const gridWidth = Math.min(width - 36, columns === 1 ? 390 : 790);
+  const cardWidth = (gridWidth - gap * (columns - 1)) / columns;
+  const cardHeight = 188;
+  const startX = width / 2 - gridWidth / 2;
+  const startY = 160 - gameState.missionMenuScroll;
+  const cards = [...MISSIONS, { id: "more", title: "More to Come", subtitle: "More missions will be added later.", locked: true }];
+
+  for (let i = 0; i < cards.length; i += 1) {
+    const mission = cards[i];
+    const col = i % columns;
+    const row = Math.floor(i / columns);
+    const x = startX + col * (cardWidth + gap);
+    const y = startY + row * (cardHeight + gap);
+    if (y > height || y + cardHeight < 136) {
+      continue;
+    }
+    drawMissionCard(mission, x, y, cardWidth, cardHeight);
+  }
+
+  drawOverlayButton("Back", 76, 126, 112, 52, "backStart", {
+    fill: "#e7eef2",
+    text: "#10202a",
+  });
+  ctx.restore();
+}
+
+function drawMissionCard(mission, x, y, w, h) {
+  const locked = mission.locked;
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.32)";
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 8;
+  ctx.fillStyle = locked ? "rgba(38, 49, 54, 0.92)" : "#f7fbff";
+  roundedRect(x, y, w, h, 8);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = locked ? "#3f4d52" : "#66d36e";
+  roundedRect(x + 14, y + 14, w - 28, 72, 8);
+  ctx.fill();
+  ctx.save();
+  ctx.translate(x + 66, y + 50);
+  ctx.rotate(-0.07);
+  drawVehicleShape({ width: 44, length: 96, color: locked ? "#69777c" : "#e53034" });
+  ctx.restore();
+  ctx.fillStyle = locked ? "#b7c6ca" : "#ffffff";
+  ctx.font = "900 32px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(locked ? "..." : "7", x + w - 34, y + 60);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = locked ? "#d6e1e4" : "#14242c";
+  ctx.font = "900 24px Arial, Helvetica, sans-serif";
+  ctx.fillText(mission.title, x + 18, y + 118);
+  ctx.fillStyle = locked ? "#aebcc0" : "#50616a";
+  ctx.font = "700 15px Arial, Helvetica, sans-serif";
+  wrapText(mission.subtitle, x + 18, y + 145, w - 36, 21);
+
+  if (!locked) {
+    overlayButtons.push({ x, y, w, h, action: `mission:${mission.id}` });
+    ctx.fillStyle = "#ffd35c";
+    roundedRect(x + w - 130, y + h - 48, 108, 34, 8);
+    ctx.fill();
+    ctx.fillStyle = "#14242c";
+    ctx.font = "900 16px Arial, Helvetica, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Drive", x + w - 76, y + h - 31);
+  }
+  ctx.restore();
+}
+
+function drawOverlayButton(label, centerX, centerY, buttonWidth, buttonHeight, action = "overlay", options = {}) {
+  const button = {
     x: centerX - buttonWidth / 2,
     y: centerY - buttonHeight / 2,
     w: buttonWidth,
     h: buttonHeight,
+    action,
   };
+  overlayButton = button;
+  overlayButtons.push(button);
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.42)";
   ctx.shadowBlur = 18;
   ctx.shadowOffsetY = 8;
-  ctx.fillStyle = "#ffd35c";
-  roundedRect(overlayButton.x, overlayButton.y, overlayButton.w, overlayButton.h, 8);
+  ctx.fillStyle = options.fill || "#ffd35c";
+  roundedRect(button.x, button.y, button.w, button.h, 8);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.strokeStyle = "rgba(255,255,255,0.72)";
   ctx.lineWidth = 3;
-  roundedRect(overlayButton.x + 3, overlayButton.y + 3, overlayButton.w - 6, overlayButton.h - 6, 7);
+  roundedRect(button.x + 3, button.y + 3, button.w - 6, button.h - 6, 7);
   ctx.stroke();
-  ctx.fillStyle = "#14242c";
+  ctx.fillStyle = options.text || "#14242c";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `900 ${Math.min(38, buttonHeight * 0.48)}px Arial, Helvetica, sans-serif`;
@@ -1940,7 +2275,7 @@ function drawOverlayButton(label, centerX, centerY, buttonWidth, buttonHeight) {
 }
 
 function drawModalOverlay() {
-  if (!["trainingIntro", "trainingFail", "bossIntro", "levelComplete", "gameComplete", "crushed"].includes(gameState.phase)) {
+  if (!["trainingIntro", "trainingFail", "bossIntro", "levelComplete", "gameComplete", "crushed", "missionComplete"].includes(gameState.phase)) {
     return;
   }
   const buttonLabel = {
@@ -1950,6 +2285,7 @@ function drawModalOverlay() {
     levelComplete: "Next Level",
     gameComplete: "Play Again",
     crushed: "Try Again",
+    missionComplete: "Missions",
   }[gameState.phase];
   ctx.save();
   ctx.fillStyle = "rgba(0, 0, 0, 0.58)";
@@ -1981,6 +2317,208 @@ function wrapText(text, x, y, maxWidth, lineHeight) {
   if (line) {
     ctx.fillText(line, x, y);
   }
+}
+
+function drawMissionScene(theme) {
+  const mission = getActiveMission();
+  const stall = getMissionStallPosition(mission);
+  drawGround(theme);
+
+  ctx.save();
+  applyWorldTransform();
+
+  ctx.fillStyle = "#252c30";
+  roundedRect(-ROAD_HALF_WIDTH * 0.72, -5100, ROAD_HALF_WIDTH * 1.44, 6350, 26);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.72)";
+  ctx.lineWidth = 6;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * ROAD_HALF_WIDTH * 0.64, -5050);
+    ctx.lineTo(side * ROAD_HALF_WIDTH * 0.64, 1180);
+    ctx.stroke();
+  }
+  ctx.setLineDash([44, 38]);
+  ctx.strokeStyle = "rgba(250,250,235,0.62)";
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(0, -5050);
+  ctx.lineTo(0, 1180);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = "#30383c";
+  ctx.lineWidth = 150;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(ROAD_HALF_WIDTH * 0.48, mission.exitY);
+  ctx.bezierCurveTo(520, mission.exitY - 180, 610, mission.lot.y + 520, mission.lot.x - 520, mission.lot.y + 360);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.42)";
+  ctx.lineWidth = 5;
+  ctx.setLineDash([30, 32]);
+  ctx.beginPath();
+  ctx.moveTo(ROAD_HALF_WIDTH * 0.48, mission.exitY);
+  ctx.bezierCurveTo(520, mission.exitY - 180, 610, mission.lot.y + 520, mission.lot.x - 520, mission.lot.y + 360);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineCap = "butt";
+
+  drawMissionHomeBase(mission);
+  drawGroceryStore(mission, stall);
+
+  if (gameState.missionStep === "loading") {
+    drawGroceryCart(mission);
+  }
+
+  ctx.restore();
+}
+
+function drawMissionHomeBase(mission) {
+  ctx.save();
+  ctx.translate(mission.home.x, mission.home.y);
+  ctx.fillStyle = "rgba(255, 211, 92, 0.2)";
+  ctx.beginPath();
+  ctx.arc(0, 0, 190, 0, TWO_PI);
+  ctx.fill();
+  ctx.strokeStyle = "#ffd35c";
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.arc(0, 0, 150, 0, TWO_PI);
+  ctx.stroke();
+  ctx.fillStyle = "#e74b3f";
+  roundedRect(-82, -50, 164, 118, 10);
+  ctx.fill();
+  ctx.fillStyle = "#7b2e2a";
+  ctx.beginPath();
+  ctx.moveTo(-104, -45);
+  ctx.lineTo(0, -128);
+  ctx.lineTo(104, -45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 34px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("HOME", 0, 136);
+  ctx.restore();
+}
+
+function drawGroceryStore(mission, activeStall) {
+  const lotX = mission.lot.x - 580;
+  const lotY = mission.lot.y - 120;
+  ctx.fillStyle = "#596266";
+  roundedRect(lotX, lotY, 1160, 720, 24);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.lineWidth = 8;
+  roundedRect(lotX + 16, lotY + 16, 1128, 688, 18);
+  ctx.stroke();
+
+  ctx.fillStyle = "#47b35b";
+  roundedRect(mission.store.x - 430, mission.store.y - 260, 860, 360, 24);
+  ctx.fill();
+  ctx.fillStyle = "#f5fbff";
+  roundedRect(mission.store.x - 330, mission.store.y - 212, 660, 92, 12);
+  ctx.fill();
+  ctx.fillStyle = "#1b6631";
+  ctx.font = "900 46px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("GROCERY", mission.store.x, mission.store.y - 150);
+  ctx.fillStyle = "#2c7f42";
+  roundedRect(mission.store.x - 360, mission.store.y - 82, 720, 150, 12);
+  ctx.fill();
+  ctx.fillStyle = "rgba(215, 244, 250, 0.72)";
+  for (let i = -2; i <= 2; i += 1) {
+    roundedRect(mission.store.x + i * 132 - 48, mission.store.y - 48, 96, 86, 8);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = "#f5fbff";
+  ctx.lineWidth = 7;
+  ctx.font = "900 34px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  for (let i = 0; i < 8; i += 1) {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    const x = mission.lot.x - 270 + col * 180;
+    const y = mission.lot.y + 120 + row * 210;
+    const isActive = Math.abs(x - activeStall.x) < 1 && Math.abs(y - activeStall.y) < 1;
+    ctx.strokeStyle = isActive ? "#ffd35c" : "#f5fbff";
+    ctx.lineWidth = isActive ? 12 : 7;
+    roundedRect(x - 68, y - 88, 136, 176, 10);
+    ctx.stroke();
+    ctx.fillStyle = isActive ? "#ffd35c" : "#f5fbff";
+    ctx.fillText(`${i + 1}`, x, y + 14);
+  }
+
+  ctx.fillStyle = "#2d363b";
+  roundedRect(mission.lot.x - 180, mission.lot.y + 520, 360, 74, 8);
+  ctx.fill();
+  ctx.fillStyle = "#ffd35c";
+  ctx.font = "900 26px Arial, Helvetica, sans-serif";
+  ctx.fillText("PICKUP PARKING", mission.lot.x, mission.lot.y + 568);
+}
+
+function drawGroceryCart(mission) {
+  const cart = getMissionCartPosition(mission);
+  ctx.save();
+  ctx.translate(cart.x, cart.y);
+  ctx.fillStyle = "#295e35";
+  ctx.beginPath();
+  ctx.arc(-38, -16, 24, 0, TWO_PI);
+  ctx.fill();
+  ctx.fillStyle = "#f0c49a";
+  ctx.beginPath();
+  ctx.arc(-38, -50, 18, 0, TWO_PI);
+  ctx.fill();
+  ctx.strokeStyle = "#e7eef2";
+  ctx.lineWidth = 7;
+  roundedRect(-10, -42, 74, 68, 8);
+  ctx.stroke();
+  ctx.fillStyle = "#ffcf4a";
+  roundedRect(4, -30, 20, 26, 4);
+  roundedRect(32, -28, 20, 24, 4);
+  ctx.fill();
+  ctx.fillStyle = "#171a1c";
+  for (const x of [4, 54]) {
+    ctx.beginPath();
+    ctx.arc(x, 34, 8, 0, TWO_PI);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawMissionHud() {
+  if (gameState.phase !== "mission") {
+    return;
+  }
+  const mission = getActiveMission();
+  const messages = {
+    driveToStore: "Take the exit to Grocery Pickup",
+    findStall: `Park in stall ${gameState.missionStall}`,
+    loading: "Wait for the cart to reach your car",
+    returnHome: "Groceries loaded. Return to home base",
+  };
+  ctx.save();
+  ctx.fillStyle = "rgba(15,21,27,0.76)";
+  roundedRect(24, Math.max(78, height - 104), Math.min(470, width - 48), 76, 8);
+  ctx.fill();
+  ctx.fillStyle = "#f5fbff";
+  ctx.font = "900 18px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(mission.title, 42, Math.max(106, height - 70));
+  ctx.fillStyle = "#ffd35c";
+  ctx.font = "800 16px Arial, Helvetica, sans-serif";
+  ctx.fillText(messages[gameState.missionStep] || "", 42, Math.max(130, height - 46));
+
+  if (gameState.missionStep === "findStall" || gameState.missionNoticeTimer > 0) {
+    const flash = gameState.missionStep === "findStall" ? 0.42 + Math.sin(performance.now() * 0.012) * 0.28 : 0.52;
+    ctx.textAlign = "center";
+    ctx.fillStyle = `rgba(255, 211, 92, ${flash})`;
+    ctx.font = `900 ${Math.min(82, width * 0.14)}px Arial, Helvetica, sans-serif`;
+    ctx.fillText(`STALL ${gameState.missionStall}`, width / 2, height * 0.2);
+  }
+  ctx.restore();
 }
 
 function drawRaceHud() {
@@ -2189,56 +2727,156 @@ function drawBosses() {
 function drawBossShape(boss) {
   const w = boss.width;
   const h = boss.length;
+  const cw = boss.collisionWidth || w;
+  const ch = boss.collisionLength || h;
+  const cy = boss.collisionOffsetY || 0;
+
   ctx.fillStyle = "rgba(0,0,0,0.32)";
-  roundedRect(-w * 0.55 + 12, -h * 0.5 + 14, w * 1.1, h, 24);
+  roundedRect(-cw * 0.5 + 14, cy - ch * 0.5 + 16, cw, ch, 28);
   ctx.fill();
 
   if (boss.type === "semi") {
     ctx.save();
     ctx.translate(0, h * 0.42);
     ctx.rotate(boss.trailerAngle - boss.angle);
-    ctx.fillStyle = "#c9d0d2";
-    roundedRect(-w * 0.54, -h * 0.18, w * 1.08, h * 0.58, 16);
+    const tw = w * 1.15;
+    const th = h * 0.66;
+    ctx.fillStyle = "#d5dcde";
+    roundedRect(-tw * 0.5, -th * 0.22, tw, th, 18);
     ctx.fill();
     ctx.strokeStyle = "rgba(30,35,38,0.45)";
-    ctx.lineWidth = 8;
-    ctx.strokeRect(-w * 0.46, -h * 0.1, w * 0.92, h * 0.42);
+    ctx.lineWidth = 7;
+    roundedRect(-tw * 0.44, -th * 0.12, tw * 0.88, th * 0.46, 6);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.38)";
+    ctx.lineWidth = 5;
+    for (let y = -th * 0.06; y <= th * 0.28; y += th * 0.12) {
+      ctx.beginPath();
+      ctx.moveTo(-tw * 0.36, y);
+      ctx.lineTo(tw * 0.36, y);
+      ctx.stroke();
+    }
+    for (const x of [-tw * 0.5, tw * 0.5]) {
+      drawWheel(x, th * 0.12, 18, 34, 0, "#828a8f");
+      drawWheel(x, th * 0.28, 18, 34, 0, "#828a8f");
+    }
     ctx.restore();
   }
 
-  ctx.fillStyle = boss.color;
-  roundedRect(-w * 0.5, -h * 0.5, w, boss.type === "semi" ? h * 0.46 : h, 24);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.28)";
-  roundedRect(-w * 0.3, -h * 0.36, w * 0.6, h * 0.16, 12);
-  ctx.fill();
-
   if (boss.type === "combine") {
+    for (const x of [-w * 0.44, w * 0.44]) {
+      drawWheel(x, h * 0.18, 38, 58, 0, "#717b67");
+      drawWheel(x, -h * 0.2, 24, 36, 0, "#717b67");
+    }
+    ctx.fillStyle = boss.color;
+    roundedRect(-w * 0.46, -h * 0.36, w * 0.92, h * 0.76, 26);
+    ctx.fill();
+    ctx.fillStyle = "#e6a33a";
+    roundedRect(-w * 0.3, h * 0.02, w * 0.6, h * 0.28, 16);
+    ctx.fill();
+    ctx.fillStyle = "rgba(205, 238, 246, 0.6)";
+    roundedRect(-w * 0.26, -h * 0.27, w * 0.52, h * 0.18, 12);
+    ctx.fill();
     ctx.fillStyle = "#f0bc42";
-    ctx.fillRect(-w * 0.54, -h * 0.58, w * 1.08, h * 0.18);
+    roundedRect(-w * 0.62, -h * 0.66, w * 1.24, h * 0.2, 14);
+    ctx.fill();
     ctx.strokeStyle = "#332b1c";
     ctx.lineWidth = 6;
-    for (let x = -w * 0.52; x <= w * 0.52; x += 22) {
+    for (let x = -w * 0.58; x <= w * 0.58; x += 22) {
       ctx.beginPath();
-      ctx.moveTo(x, -h * 0.68);
-      ctx.lineTo(x + 13, -h * 0.49);
+      ctx.moveTo(x, -h * 0.72);
+      ctx.lineTo(x + 13, -h * 0.48);
       ctx.stroke();
     }
+    ctx.strokeStyle = "#744d1c";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.56, w * 0.38, Math.PI, 0);
+    ctx.stroke();
   } else if (boss.type === "monster") {
-    ctx.fillStyle = "#171a1c";
     for (const x of [-w * 0.58, w * 0.58]) {
       for (const y of [-h * 0.28, h * 0.28]) {
-        ctx.beginPath();
-        ctx.arc(x, y, 48, 0, TWO_PI);
-        ctx.fill();
+        drawWheel(x, y, 52, 52, 0, "#8d96a0");
       }
     }
-  } else if (boss.type === "dozer") {
-    ctx.fillStyle = "#c98918";
-    roundedRect(-w * 0.62, -h * 0.62, w * 1.24, h * 0.18, 16);
+    ctx.fillStyle = "#2a213d";
+    roundedRect(-w * 0.3, -h * 0.35, w * 0.6, h * 0.7, 18);
     ctx.fill();
-    ctx.fillStyle = "#2b2d2f";
-    ctx.fillRect(-w * 0.56, h * 0.05, w * 1.12, h * 0.23);
+    ctx.fillStyle = boss.color;
+    roundedRect(-w * 0.42, -h * 0.46, w * 0.84, h * 0.92, 30);
+    ctx.fill();
+    ctx.fillStyle = "#7a55d6";
+    roundedRect(-w * 0.28, -h * 0.54, w * 0.56, h * 0.24, 18);
+    roundedRect(-w * 0.32, h * 0.18, w * 0.64, h * 0.24, 16);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(230,230,255,0.52)";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.24, -h * 0.16);
+    ctx.lineTo(w * 0.24, h * 0.16);
+    ctx.moveTo(w * 0.24, -h * 0.16);
+    ctx.lineTo(-w * 0.24, h * 0.16);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(205, 238, 246, 0.66)";
+    roundedRect(-w * 0.24, -h * 0.24, w * 0.48, h * 0.18, 12);
+    ctx.fill();
+  } else if (boss.type === "dozer") {
+    ctx.fillStyle = "#20251e";
+    for (const x of [-w * 0.46, w * 0.46]) {
+      roundedRect(x - w * 0.12, -h * 0.18, w * 0.24, h * 0.56, 16);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 4;
+      for (let y = -h * 0.12; y <= h * 0.3; y += h * 0.12) {
+        ctx.beginPath();
+        ctx.moveTo(x - w * 0.1, y);
+        ctx.lineTo(x + w * 0.1, y - h * 0.05);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = boss.color;
+    roundedRect(-w * 0.36, -h * 0.4, w * 0.72, h * 0.82, 22);
+    ctx.fill();
+    ctx.fillStyle = "#c98918";
+    roundedRect(-w * 0.66, -h * 0.66, w * 1.32, h * 0.2, 18);
+    ctx.fill();
+    ctx.strokeStyle = "#8c651b";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.52, -h * 0.48);
+    ctx.lineTo(-w * 0.28, -h * 0.28);
+    ctx.moveTo(w * 0.52, -h * 0.48);
+    ctx.lineTo(w * 0.28, -h * 0.28);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(205, 238, 246, 0.58)";
+    roundedRect(-w * 0.22, -h * 0.12, w * 0.44, h * 0.22, 10);
+    ctx.fill();
+    ctx.fillStyle = "#24282b";
+    roundedRect(-w * 0.06, -h * 0.44, w * 0.12, h * 0.18, 5);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = boss.color;
+    roundedRect(-w * 0.5, -h * 0.5, w, h, 24);
+    ctx.fill();
+  }
+
+  if (boss.type === "semi") {
+    for (const x of [-w * 0.5, w * 0.5]) {
+      drawWheel(x, -h * 0.18, 20, 38, 0, "#828a8f");
+      drawWheel(x, h * 0.04, 20, 38, 0, "#828a8f");
+    }
+    ctx.fillStyle = boss.color;
+    roundedRect(-w * 0.48, -h * 0.5, w * 0.96, h * 0.5, 24);
+    ctx.fill();
+    ctx.fillStyle = "#b92d2d";
+    roundedRect(-w * 0.36, -h * 0.6, w * 0.72, h * 0.22, 16);
+    ctx.fill();
+    ctx.fillStyle = "rgba(205, 238, 246, 0.64)";
+    roundedRect(-w * 0.3, -h * 0.34, w * 0.6, h * 0.16, 10);
+    ctx.fill();
+    ctx.fillStyle = "#2f3436";
+    roundedRect(-w * 0.38, -h * 0.53, w * 0.76, h * 0.08, 6);
+    ctx.fill();
   }
 
   const weakFlash = 0.5 + Math.sin(performance.now() * 0.012) * 0.28;
@@ -2872,11 +3510,9 @@ function drawPlayerCar(theme) {
   ctx.ellipse(7, h * 0.06, w * 0.62, h * 0.5, 0.04, 0, TWO_PI);
   ctx.fill();
 
-  ctx.fillStyle = "#16191b";
   for (const x of [-w * 0.52, w * 0.52]) {
-    roundedRect(x - w * 0.11, -h * 0.32, w * 0.22, h * 0.22, 7);
-    roundedRect(x - w * 0.11, h * 0.18, w * 0.22, h * 0.24, 7);
-    ctx.fill();
+    drawWheel(x, -h * 0.3, w * 0.12, h * 0.12, 0, "#687079");
+    drawWheel(x, h * 0.29, w * 0.12, h * 0.13, 0, "#687079");
   }
 
   const bodyRed = Math.round(car.sensed ? 230 : 210);
@@ -2893,6 +3529,14 @@ function drawPlayerCar(theme) {
   roundedRect(-w * 0.25, -h * 0.22, w * 0.5, h * 0.19, 10);
   roundedRect(-w * 0.27, h * 0.06, w * 0.54, h * 0.19, 10);
   ctx.fill();
+  ctx.strokeStyle = "rgba(26, 55, 64, 0.42)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.25, -h * 0.01);
+  ctx.lineTo(w * 0.25, -h * 0.01);
+  ctx.moveTo(-w * 0.27, h * 0.27);
+  ctx.lineTo(w * 0.27, h * 0.27);
+  ctx.stroke();
 
   ctx.fillStyle = "#ffd61f";
   roundedRect(-w * 0.08, -h * 0.43, w * 0.16, h * 0.22, 5);
@@ -2968,11 +3612,45 @@ function roundedRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+function getMissionMenuMaxScroll() {
+  const columns = width < 760 ? 1 : 2;
+  const gap = 18;
+  const cardHeight = 188;
+  const cardCount = MISSIONS.length + 1;
+  const rows = Math.ceil(cardCount / columns);
+  const contentHeight = rows * cardHeight + (rows - 1) * gap;
+  return Math.max(0, contentHeight - Math.max(260, height - 190));
+}
+
+function scrollMissionMenu(delta) {
+  gameState.missionMenuScroll = clamp(gameState.missionMenuScroll + delta, 0, getMissionMenuMaxScroll());
+}
+
+function getOverlayButtonAt(x, y) {
+  for (let i = overlayButtons.length - 1; i >= 0; i -= 1) {
+    const button = overlayButtons[i];
+    if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
+      return button;
+    }
+  }
+  return null;
+}
+
 function handlePointerDown(event) {
   const x = event.clientX;
   const y = event.clientY;
-  if (overlayButton && x >= overlayButton.x && x <= overlayButton.x + overlayButton.w && y >= overlayButton.y && y <= overlayButton.y + overlayButton.h) {
-    handleOverlayAction();
+  const button = getOverlayButtonAt(x, y);
+  if (button) {
+    handleOverlayAction(button.action);
+    return;
+  }
+  if (gameState.phase === "missionMenu") {
+    missionMenuDrag = {
+      id: event.pointerId,
+      y,
+      moved: false,
+    };
+    canvas.setPointerCapture?.(event.pointerId);
     return;
   }
   if (!isDrivingPhase()) {
@@ -2988,6 +3666,15 @@ function handlePointerDown(event) {
 }
 
 function handlePointerMove(event) {
+  if (missionMenuDrag && missionMenuDrag.id === event.pointerId) {
+    const delta = missionMenuDrag.y - event.clientY;
+    if (Math.abs(delta) > 1) {
+      scrollMissionMenu(delta);
+      missionMenuDrag.moved = true;
+    }
+    missionMenuDrag.y = event.clientY;
+    return;
+  }
   if (!activeTouches.has(event.pointerId)) {
     return;
   }
@@ -3000,11 +3687,23 @@ function handlePointerMove(event) {
 
 function handlePointerUp(event) {
   activeTouches.delete(event.pointerId);
+  if (missionMenuDrag && missionMenuDrag.id === event.pointerId) {
+    missionMenuDrag = null;
+  }
 }
 
-function handleOverlayAction() {
+function handleOverlayAction(action = "overlay") {
   initAudio();
-  if (gameState.phase === "start") {
+  if (action === "startGame") {
+    startLevel(0);
+  } else if (action === "missionMenu") {
+    gameState.missionMenuScroll = 0;
+    setPhase("missionMenu");
+  } else if (action === "backStart") {
+    setPhase("start");
+  } else if (action.startsWith("mission:")) {
+    startMission(action.slice("mission:".length));
+  } else if (gameState.phase === "start") {
     startLevel(0);
   } else if (gameState.phase === "trainingIntro") {
     setupTrainingCourse();
@@ -3018,6 +3717,9 @@ function handleOverlayAction() {
     setPhase("start");
   } else if (gameState.phase === "crushed") {
     startBossFight();
+  } else if (gameState.phase === "missionComplete") {
+    gameState.missionMenuScroll = 0;
+    setPhase("missionMenu");
   }
 }
 
@@ -3305,6 +4007,13 @@ canvas.addEventListener("pointermove", handlePointerMove);
 canvas.addEventListener("pointerup", handlePointerUp);
 canvas.addEventListener("pointercancel", handlePointerUp);
 canvas.addEventListener("lostpointercapture", handlePointerUp);
+canvas.addEventListener("wheel", (event) => {
+  if (gameState.phase !== "missionMenu") {
+    return;
+  }
+  event.preventDefault();
+  scrollMissionMenu(event.deltaY);
+}, { passive: false });
 soundButton.addEventListener("click", () => setSound(!audioEnabled));
 fullscreenButton.addEventListener("click", toggleFullscreen);
 window.addEventListener("resize", resize);
