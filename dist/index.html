@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Tommy Micro Machines Drive</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Tommy Micro Machines Drive">
+      <canvas id="gameCanvas" aria-label="Touch driving game canvas"></canvas>
+
+      <section class="hud" aria-label="Game status">
+        <div>
+          <span class="label">Speed</span>
+          <strong id="speedText">0</strong>
+        </div>
+        <div>
+          <span class="label">Wanted</span>
+          <strong id="wantedText">-----</strong>
+        </div>
+        <button id="soundButton" type="button" aria-pressed="false">Sound</button>
+        <button id="fullscreenButton" type="button" aria-pressed="false">Full</button>
+      </section>
+
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
