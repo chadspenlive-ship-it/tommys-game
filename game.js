@@ -11,6 +11,7 @@ const activeTouches = new Map();
 const skidMarks = [];
 const tireSmoke = [];
 const explosions = [];
+const bossDebris = [];
 const environmentObjects = new Map();
 const boostPads = new Map();
 const ramps = new Map();
@@ -107,9 +108,162 @@ const PAN_MODES = [
 
 const MISSIONS = [
   {
+    id: "trace-road",
+    type: "tracePath",
+    title: "Trace the Road",
+    subtitle: "Follow the glowing road from start to finish.",
+    cardText: "~",
+    color: "#58d6ff",
+    start: { x: 0, y: 560 },
+    bounds: { minX: -760, maxX: 760, minY: -4300, maxY: 900 },
+    speedScale: 0.48,
+    path: [
+      { x: 0, y: 560 },
+      { x: -260, y: 120 },
+      { x: 260, y: -320 },
+      { x: -220, y: -780 },
+      { x: 240, y: -1220 },
+      { x: -180, y: -1680 },
+      { x: 180, y: -2140 },
+      { x: 0, y: -2660 },
+    ],
+  },
+  {
+    id: "number-parking",
+    type: "numberParking",
+    title: "Number Parking",
+    subtitle: "Listen for a number and park in the matching spot.",
+    cardText: "4",
+    color: "#ffd35c",
+    start: { x: 0, y: -150 },
+    targetNumber: 4,
+    bounds: { minX: -860, maxX: 860, minY: -1760, maxY: 980 },
+    speedScale: 0.46,
+  },
+  {
+    id: "color-delivery",
+    type: "colorDelivery",
+    title: "Color Delivery",
+    subtitle: "Pick up a package and drive it to the same color garage.",
+    cardText: "R",
+    color: "#ff5b5b",
+    start: { x: 0, y: 660 },
+    targetColor: "red",
+    bounds: { minX: -980, maxX: 980, minY: -2100, maxY: 1000 },
+    speedScale: 0.5,
+  },
+  {
+    id: "follow-arrows",
+    type: "arrowFollow",
+    title: "Follow the Arrows",
+    subtitle: "Drive through the arrow gates in order.",
+    cardText: ">",
+    color: "#8fe36a",
+    start: { x: 0, y: 620 },
+    bounds: { minX: -920, maxX: 920, minY: -3360, maxY: 980 },
+    speedScale: 0.5,
+    path: [
+      { x: 0, y: 620, arrow: "up" },
+      { x: 0, y: 160, arrow: "right" },
+      { x: 420, y: -260, arrow: "up" },
+      { x: 420, y: -800, arrow: "left" },
+      { x: -280, y: -1260, arrow: "up" },
+      { x: -280, y: -1800, arrow: "right" },
+      { x: 180, y: -2320, arrow: "up" },
+    ],
+  },
+  {
+    id: "stop-go",
+    type: "stopGo",
+    title: "Stop and Go",
+    subtitle: "Stop on red, drive on green, and reach the finish.",
+    cardText: "GO",
+    color: "#36d16f",
+    start: { x: 0, y: 640 },
+    bounds: { minX: -620, maxX: 620, minY: -3340, maxY: 980 },
+    speedScale: 0.44,
+    path: [
+      { x: 0, y: 640 },
+      { x: 0, y: 60 },
+      { x: 0, y: -520 },
+      { x: 0, y: -1100 },
+      { x: 0, y: -1680 },
+      { x: 0, y: -2260 },
+    ],
+    lights: [
+      { x: 0, y: 40 },
+      { x: 0, y: -860 },
+      { x: 0, y: -1760 },
+    ],
+  },
+  {
+    id: "road-maze",
+    type: "maze",
+    title: "Road Maze",
+    subtitle: "Solve the road maze and find the star garage.",
+    cardText: "*",
+    color: "#c98dff",
+    start: { x: -520, y: 560 },
+    bounds: { minX: -880, maxX: 880, minY: -2880, maxY: 920 },
+    speedScale: 0.46,
+    path: [
+      { x: -520, y: 560 },
+      { x: -520, y: 40 },
+      { x: 320, y: 40 },
+      { x: 320, y: -560 },
+      { x: -220, y: -560 },
+      { x: -220, y: -1160 },
+      { x: 520, y: -1160 },
+      { x: 520, y: -1740 },
+      { x: -20, y: -1740 },
+      { x: -20, y: -2320 },
+    ],
+  },
+  {
+    id: "trace-name",
+    type: "nameTrace",
+    title: "Trace Name",
+    subtitle: "Drive over the big name roads one checkpoint at a time.",
+    cardText: "T",
+    color: "#f58b3b",
+    start: { x: -580, y: 520 },
+    nameText: "TOMMY",
+    bounds: { minX: -900, maxX: 1160, minY: -1040, maxY: 920 },
+    speedScale: 0.42,
+    path: [
+      { x: -600, y: 520 },
+      { x: -600, y: 130 },
+      { x: -720, y: 130 },
+      { x: -480, y: 130 },
+      { x: -210, y: 520 },
+      { x: -330, y: 420 },
+      { x: -330, y: 220 },
+      { x: -210, y: 120 },
+      { x: -90, y: 220 },
+      { x: -90, y: 420 },
+      { x: -210, y: 520 },
+      { x: 120, y: 520 },
+      { x: 120, y: 130 },
+      { x: 230, y: 320 },
+      { x: 340, y: 130 },
+      { x: 340, y: 520 },
+      { x: 560, y: 130 },
+      { x: 560, y: 520 },
+      { x: 690, y: 130 },
+      { x: 690, y: 520 },
+      { x: 830, y: 130 },
+      { x: 930, y: 330 },
+      { x: 1030, y: 130 },
+    ],
+  },
+  {
     id: "grocery",
+    type: "grocery",
     title: "Grocery Pickup",
     subtitle: "Exit the highway, park at stall 7, load up, and return home.",
+    cardText: "7",
+    color: "#66d36e",
+    speedScale: 0.52,
     stallNumber: 7,
     home: { x: 0, y: 720 },
     store: { x: 1040, y: -4200 },
@@ -136,12 +290,22 @@ const gameState = {
   bossIntroSeen: false,
   playerBossHits: 0,
   levelCompleteText: "",
+  bossVictoryTimer: 0,
+  bossVictoryDuration: 10,
+  bossVictoryExplosionTimer: 0,
   missionMenuScroll: 0,
   activeMissionId: null,
   missionStep: "none",
   missionStall: 0,
   missionNoticeTimer: 0,
   missionCartProgress: 0,
+  missionProgress: 0,
+  missionTargetNumber: 0,
+  missionTargetColor: "",
+  missionCarryItem: false,
+  missionLightTimer: 0,
+  missionLightGreen: true,
+  missionMistakeTimer: 0,
 };
 
 const car = {
@@ -380,7 +544,8 @@ function updateCar(dt) {
     const turbo = car.turboTimer > 0 ? 1.5 : 1;
     const trainingControl = gameState.phase === "training" ? 0.5 : 1;
     const arenaControl = gameState.phase === "boss" ? 0.74 : 1;
-    car.targetSpeed = drive * 1650 * hillDrag * turbo * trainingControl * arenaControl;
+    const missionControl = gameState.phase === "mission" ? getActiveMission().speedScale || 0.5 : 1;
+    car.targetSpeed = drive * 1650 * hillDrag * turbo * trainingControl * arenaControl * missionControl;
   } else {
     car.previousTouchX = null;
     car.previousTouchY = null;
@@ -1392,12 +1557,27 @@ function pruneEffects(dt) {
       explosions.splice(i, 1);
     }
   }
+
+  for (let i = bossDebris.length - 1; i >= 0; i -= 1) {
+    const piece = bossDebris[i];
+    piece.age += dt;
+    piece.x += piece.vx * dt;
+    piece.y += piece.vy * dt;
+    piece.angle += piece.spin * dt;
+    piece.vx *= Math.exp(-dt * 0.7);
+    piece.vy *= Math.exp(-dt * 0.7);
+    piece.spin *= Math.exp(-dt * 0.5);
+    if (piece.age > piece.life) {
+      bossDebris.splice(i, 1);
+    }
+  }
 }
 
 function clearWorldObjects() {
   skidMarks.length = 0;
   tireSmoke.length = 0;
   explosions.length = 0;
+  bossDebris.length = 0;
   environmentObjects.clear();
   boostPads.clear();
   ramps.clear();
@@ -1410,7 +1590,7 @@ function clearWorldObjects() {
 
 function resetCarForPhase(phase) {
   car.x = width / 2;
-  car.y = phase === "race" ? height * 0.72 : height * 0.78;
+  car.y = phase === "race" ? height * 0.72 : phase === "mission" ? height / 2 : height * 0.78;
   car.angle = 0;
   car.speed = 0;
   car.lastSpeed = 0;
@@ -1506,23 +1686,81 @@ function getMissionCartPosition(mission = getActiveMission()) {
   };
 }
 
+function getMissionPrompt(mission = getActiveMission()) {
+  const prompts = {
+    grocery: "Drive to the grocery pickup lot.",
+    tracePath: "Trace the glowing road.",
+    numberParking: `Park in number ${mission.targetNumber}.`,
+    colorDelivery: "Pick up red, then drive to red.",
+    arrowFollow: "Follow each arrow gate.",
+    stopGo: "Green means go. Red means stop.",
+    maze: "Find the star garage.",
+    nameTrace: `Trace ${mission.nameText || "TOMMY"}.`,
+  };
+  return prompts[mission.type] || mission.subtitle;
+}
+
+function getMissionCompleteText(mission = getActiveMission()) {
+  const messages = {
+    tracePath: "You traced the whole road!",
+    arrowFollow: "You followed every arrow!",
+    maze: "You solved the road maze!",
+    nameTrace: `You traced ${mission.nameText || "TOMMY"}!`,
+  };
+  return messages[mission.type] || "Great driving!";
+}
+
+function getNumberParkingSpaces() {
+  const spaces = [];
+  for (let i = 0; i < 8; i += 1) {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    spaces.push({
+      number: i + 1,
+      x: -330 + col * 220,
+      y: -820 + row * 280,
+    });
+  }
+  return spaces;
+}
+
+function getColorPickupPosition() {
+  return { x: -520, y: 260 };
+}
+
+function getColorGaragePositions() {
+  return [
+    { key: "red", label: "RED", color: "#ff4d4d", x: 520, y: -1140 },
+    { key: "blue", label: "BLUE", color: "#2f80ed", x: -520, y: -1140 },
+    { key: "yellow", label: "YELLOW", color: "#ffd35c", x: 520, y: -520 },
+  ];
+}
+
 function startMission(id) {
   const mission = MISSIONS.find((item) => item.id === id) || MISSIONS[0];
   clearWorldObjects();
   resetCarForPhase("mission");
-  setControlBaseMode("bottom");
-  panModeIndex = 3;
+  setControlBaseMode("center");
+  panModeIndex = 1;
   wantedStars = 0;
   explodedCarCount = 0;
   gameState.policeCalled = false;
-  world.x = mission.home.x - (car.x - width / 2) / CAMERA_ZOOM;
-  world.y = mission.home.y - (car.y - height / 2) / CAMERA_ZOOM;
+  const start = mission.start || mission.home || { x: 0, y: 0 };
+  world.x = start.x - (car.x - width / 2) / CAMERA_ZOOM;
+  world.y = start.y - (car.y - height / 2) / CAMERA_ZOOM;
   gameState.activeMissionId = mission.id;
-  gameState.missionStep = "driveToStore";
-  gameState.missionStall = mission.stallNumber;
+  gameState.missionStep = mission.type === "grocery" ? "driveToStore" : "play";
+  gameState.missionStall = mission.stallNumber || 0;
   gameState.missionNoticeTimer = 0;
   gameState.missionCartProgress = 0;
-  setPhase("mission", mission.title, "Drive to the grocery pickup lot.");
+  gameState.missionProgress = 0;
+  gameState.missionTargetNumber = mission.targetNumber || 0;
+  gameState.missionTargetColor = mission.targetColor || "";
+  gameState.missionCarryItem = false;
+  gameState.missionLightTimer = 0;
+  gameState.missionLightGreen = true;
+  gameState.missionMistakeTimer = 0;
+  setPhase("mission", mission.title, getMissionPrompt(mission));
 }
 
 function failMission() {
@@ -1532,13 +1770,15 @@ function failMission() {
   cop.active = false;
   cop.pending = false;
   cop.pendingTimer = 0;
-  setPhase("missionFail", "Mission Failed", "You got busted before the groceries made it home.");
+  setPhase("missionFail", "Mission Failed", "You got busted before finishing the mission.");
 }
 
 function constrainMissionDriving() {
+  const mission = getActiveMission();
+  const bounds = mission.bounds || { minX: -820, maxX: 1720, minY: -4880, maxY: 1050 };
   const playerWorld = getPlayerWorld();
-  const clampedX = clamp(playerWorld.x, -820, 1720);
-  const clampedY = clamp(playerWorld.y, -4880, 1050);
+  const clampedX = clamp(playerWorld.x, bounds.minX, bounds.maxX);
+  const clampedY = clamp(playerWorld.y, bounds.minY, bounds.maxY);
   world.x += clampedX - playerWorld.x;
   world.y += clampedY - playerWorld.y;
 }
@@ -1550,6 +1790,15 @@ function updateMission(dt) {
   }
 
   const mission = getActiveMission();
+  if (mission.type !== "grocery") {
+    updateLessonMission(mission, dt);
+    return;
+  }
+
+  updateGroceryMission(mission, dt);
+}
+
+function updateGroceryMission(mission, dt) {
   const playerWorld = getPlayerWorld();
   const lotDistance = Math.hypot(playerWorld.x - mission.lot.x, playerWorld.y - mission.lot.y);
   const stall = getMissionStallPosition(mission);
@@ -1582,6 +1831,92 @@ function updateMission(dt) {
   }
 
   gameState.missionNoticeTimer = Math.max(0, gameState.missionNoticeTimer - dt);
+}
+
+function updateLessonMission(mission, dt) {
+  if (mission.type === "numberParking") {
+    updateNumberParkingMission(mission);
+  } else if (mission.type === "colorDelivery") {
+    updateColorDeliveryMission(mission);
+  } else if (mission.type === "stopGo") {
+    updateStopGoMission(mission, dt);
+  } else {
+    updatePathMission(mission);
+  }
+
+  gameState.missionNoticeTimer = Math.max(0, gameState.missionNoticeTimer - dt);
+  gameState.missionMistakeTimer = Math.max(0, gameState.missionMistakeTimer - dt);
+}
+
+function updatePathMission(mission) {
+  const points = mission.path || [];
+  const playerWorld = getPlayerWorld();
+  const target = points[gameState.missionProgress + 1] || points[gameState.missionProgress];
+  if (!target) {
+    return;
+  }
+  if (Math.hypot(playerWorld.x - target.x, playerWorld.y - target.y) < 145) {
+    gameState.missionProgress += 1;
+    playConeHit(0.55);
+    if (gameState.missionProgress >= points.length - 1) {
+      completeMission(getMissionCompleteText(mission));
+    }
+  }
+}
+
+function updateNumberParkingMission(mission) {
+  const playerWorld = getPlayerWorld();
+  const spaces = getNumberParkingSpaces();
+  const target = spaces.find((space) => space.number === mission.targetNumber) || spaces[0];
+  if (Math.hypot(playerWorld.x - target.x, playerWorld.y - target.y) < 105 && Math.abs(car.speed) < 190) {
+    completeMission(`Great parking at number ${mission.targetNumber}!`);
+  }
+}
+
+function updateColorDeliveryMission(mission) {
+  const playerWorld = getPlayerWorld();
+  const pickup = getColorPickupPosition(mission);
+  const garage = getColorGaragePositions().find((item) => item.key === mission.targetColor);
+  if (!gameState.missionCarryItem && Math.hypot(playerWorld.x - pickup.x, playerWorld.y - pickup.y) < 120) {
+    gameState.missionCarryItem = true;
+    gameState.missionNoticeTimer = 2;
+    playConeHit(0.7);
+  } else if (gameState.missionCarryItem && garage && Math.hypot(playerWorld.x - garage.x, playerWorld.y - garage.y) < 135) {
+    completeMission("Red package delivered to the red garage!");
+  }
+}
+
+function updateStopGoMission(mission, dt) {
+  gameState.missionLightTimer += dt;
+  gameState.missionLightGreen = Math.floor(gameState.missionLightTimer / 2.35) % 2 === 0;
+  const playerWorld = getPlayerWorld();
+  const light = mission.lights[Math.min(gameState.missionProgress, mission.lights.length - 1)];
+  if (light && Math.abs(playerWorld.y - light.y) < 120 && Math.abs(playerWorld.x - light.x) < 190) {
+    if (gameState.missionLightGreen) {
+      gameState.missionProgress += 1;
+      gameState.missionNoticeTimer = 1.3;
+      playConeHit(0.55);
+    } else if (Math.abs(car.speed) > 95) {
+      gameState.missionMistakeTimer = 1.5;
+      car.vx *= 0.2;
+      car.vy *= 0.2;
+      world.y += playerWorld.y < light.y ? -110 : 110;
+      playConeHit(0.35);
+    }
+  }
+  if (gameState.missionProgress >= mission.lights.length) {
+    const finish = mission.path[mission.path.length - 1];
+    if (Math.hypot(playerWorld.x - finish.x, playerWorld.y - finish.y) < 145) {
+      completeMission("You stopped and went safely!");
+    }
+  }
+}
+
+function completeMission(message) {
+  activeTouches.clear();
+  car.vx *= 0.22;
+  car.vy *= 0.22;
+  setPhase("missionComplete", "Mission Complete!", message);
 }
 
 function finishRace() {
@@ -1750,6 +2085,115 @@ function completeBossFight() {
   setPhase("levelComplete", `${level.name} Complete!`, "Great racing. The next level is ready.");
 }
 
+function startBossVictory() {
+  activeTouches.clear();
+  car.vx *= 0.18;
+  car.vy *= 0.18;
+  gameState.bossVictoryTimer = 0;
+  gameState.bossVictoryExplosionTimer = 0;
+  bossDebris.length = 0;
+
+  for (const boss of gameState.bosses) {
+    spawnBossDebris(boss);
+    createExplosion(boss, 1.55);
+  }
+
+  playBossVictoryMusic();
+  setPhase("bossVictory", "Boss Destroyed!", "Victory celebration!");
+}
+
+function spawnBossDebris(boss) {
+  const cos = Math.cos(boss.angle);
+  const sin = Math.sin(boss.angle);
+  const pieces = getBossDebrisPieces(boss);
+  pieces.forEach((piece, index) => {
+    const localX = piece.x;
+    const localY = piece.y;
+    const worldX = boss.x + localX * cos - localY * sin;
+    const worldY = boss.y + localX * sin + localY * cos;
+    const angle = Math.atan2(worldY - boss.y, worldX - boss.x);
+    const hash = hashNumber(Math.floor(boss.x), Math.floor(boss.y), index + 331);
+    const speed = 180 + hash * 520;
+    bossDebris.push({
+      x: worldX,
+      y: worldY,
+      vx: Math.cos(angle) * speed + boss.vx * 0.22,
+      vy: Math.sin(angle) * speed + boss.vy * 0.22,
+      width: piece.width,
+      height: piece.height,
+      color: piece.color,
+      angle: boss.angle + (piece.angle || 0),
+      spin: (hash - 0.5) * 7.8,
+      age: 0,
+      life: 7.4 + hashNumber(index, Math.floor(boss.x), 337) * 2.6,
+      shape: piece.shape || "rect",
+    });
+  });
+}
+
+function getBossDebrisPieces(boss) {
+  const w = boss.width;
+  const h = boss.length;
+  const pieces = [
+    { x: 0, y: -h * 0.22, width: w * 0.46, height: h * 0.22, color: boss.color },
+    { x: 0, y: h * 0.18, width: w * 0.5, height: h * 0.24, color: boss.color },
+    { x: -w * 0.26, y: 0, width: w * 0.24, height: h * 0.3, color: boss.color },
+    { x: w * 0.26, y: 0, width: w * 0.24, height: h * 0.3, color: boss.color },
+    { x: 0, y: -h * 0.34, width: w * 0.42, height: h * 0.14, color: "rgba(205, 238, 246, 0.82)" },
+  ];
+
+  if (boss.type === "combine") {
+    pieces.push(
+      { x: -w * 0.36, y: -h * 0.6, width: w * 0.5, height: h * 0.12, color: "#f0bc42" },
+      { x: w * 0.36, y: -h * 0.6, width: w * 0.5, height: h * 0.12, color: "#f0bc42" },
+      { x: -w * 0.44, y: h * 0.18, width: 58, height: 82, color: "#171a1c", shape: "wheel" },
+      { x: w * 0.44, y: h * 0.18, width: 58, height: 82, color: "#171a1c", shape: "wheel" },
+    );
+  } else if (boss.type === "monster") {
+    for (const x of [-w * 0.58, w * 0.58]) {
+      for (const y of [-h * 0.28, h * 0.28]) {
+        pieces.push({ x, y, width: 104, height: 104, color: "#171a1c", shape: "wheel" });
+      }
+    }
+    pieces.push({ x: 0, y: 0, width: w * 0.62, height: h * 0.18, color: "#d9d9ff", angle: 0.75 });
+  } else if (boss.type === "dozer") {
+    pieces.push(
+      { x: 0, y: -h * 0.6, width: w * 1.18, height: h * 0.16, color: "#c98918" },
+      { x: -w * 0.46, y: h * 0.08, width: w * 0.22, height: h * 0.44, color: "#20251e" },
+      { x: w * 0.46, y: h * 0.08, width: w * 0.22, height: h * 0.44, color: "#20251e" },
+    );
+  } else if (boss.type === "semi") {
+    pieces.push(
+      { x: 0, y: h * 0.42, width: w * 0.92, height: h * 0.28, color: "#d5dcde" },
+      { x: 0, y: h * 0.66, width: w * 0.86, height: h * 0.2, color: "#c9d0d2" },
+      { x: -w * 0.5, y: h * 0.08, width: 42, height: 74, color: "#171a1c", shape: "wheel" },
+      { x: w * 0.5, y: h * 0.08, width: 42, height: 74, color: "#171a1c", shape: "wheel" },
+      { x: -w * 0.5, y: h * 0.54, width: 40, height: 68, color: "#171a1c", shape: "wheel" },
+      { x: w * 0.5, y: h * 0.54, width: 40, height: 68, color: "#171a1c", shape: "wheel" },
+    );
+  }
+
+  return pieces;
+}
+
+function updateBossVictory(dt) {
+  gameState.bossVictoryTimer += dt;
+  gameState.bossVictoryExplosionTimer -= dt;
+  updateAudio();
+  if (gameState.bossVictoryExplosionTimer <= 0 && bossDebris.length) {
+    const index = Math.floor(hashNumber(Math.floor(gameState.bossVictoryTimer * 100), bossDebris.length, 347) * bossDebris.length);
+    const piece = bossDebris[index];
+    createExplosion({ x: piece.x, y: piece.y, vx: piece.vx, vy: piece.vy, color: piece.color }, 0.42);
+    playExplosion(0.55);
+    gameState.bossVictoryExplosionTimer = 0.32 + hashNumber(index, Math.floor(gameState.bossVictoryTimer * 60), 349) * 0.28;
+  }
+
+  if (gameState.bossVictoryTimer >= gameState.bossVictoryDuration) {
+    bossDebris.length = 0;
+    completeBossFight();
+  }
+}
+
 function constrainTrainingDriving() {
   const playerWorld = getPlayerWorld();
   const clampedX = clamp(playerWorld.x, -720, 720);
@@ -1817,7 +2261,7 @@ function updateBosses(dt) {
     resolveBossHit(boss, getPlayerWorld());
   }
   if (gameState.bosses.length && gameState.bosses.every((boss) => boss.destroyed)) {
-    completeBossFight();
+    startBossVictory();
   }
 }
 
@@ -2010,6 +2454,12 @@ function updateGame(dt) {
     return;
   }
 
+  if (gameState.phase === "bossVictory") {
+    updateBossVictory(dt);
+    pruneEffects(dt);
+    return;
+  }
+
   if (gameState.phase === "mission") {
     updateCar(dt);
     constrainMissionDriving();
@@ -2073,10 +2523,11 @@ function draw() {
     return;
   }
 
-  if (gameState.phase === "boss" || gameState.phase === "bossIntro" || gameState.phase === "crushed") {
+  if (gameState.phase === "boss" || gameState.phase === "bossIntro" || gameState.phase === "crushed" || gameState.phase === "bossVictory") {
     drawBossArena(theme);
     drawSkidMarks(theme);
     drawBosses();
+    drawBossDebris();
     drawExplosions(theme);
     drawGuidanceLights(theme);
     drawPlayerCar(theme);
@@ -2084,6 +2535,7 @@ function draw() {
     drawTouchPoints(theme);
     drawSmoke();
     drawBossHud();
+    drawBossVictoryHud();
     drawModalOverlay();
     drawFade();
     return;
@@ -2197,6 +2649,10 @@ function drawMissionMenu(theme) {
   const startY = 160 - gameState.missionMenuScroll;
   const cards = [...MISSIONS, { id: "more", title: "More to Come", subtitle: "More missions will be added later.", locked: true }];
 
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 148, width, height - 148);
+  ctx.clip();
   for (let i = 0; i < cards.length; i += 1) {
     const mission = cards[i];
     const col = i % columns;
@@ -2208,6 +2664,7 @@ function drawMissionMenu(theme) {
     }
     drawMissionCard(mission, x, y, cardWidth, cardHeight);
   }
+  ctx.restore();
 
   drawOverlayButton("Back", 76, 126, 112, 52, "backStart", {
     fill: "#e7eef2",
@@ -2227,7 +2684,7 @@ function drawMissionCard(mission, x, y, w, h) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = locked ? "#3f4d52" : "#66d36e";
+  ctx.fillStyle = locked ? "#3f4d52" : mission.color || "#66d36e";
   roundedRect(x + 14, y + 14, w - 28, 72, 8);
   ctx.fill();
   ctx.save();
@@ -2238,7 +2695,7 @@ function drawMissionCard(mission, x, y, w, h) {
   ctx.fillStyle = locked ? "#b7c6ca" : "#ffffff";
   ctx.font = "900 32px Arial, Helvetica, sans-serif";
   ctx.textAlign = "right";
-  ctx.fillText(locked ? "..." : "7", x + w - 34, y + 60);
+  ctx.fillText(locked ? "..." : mission.cardText || "GO", x + w - 34, y + 60);
 
   ctx.textAlign = "left";
   ctx.fillStyle = locked ? "#d6e1e4" : "#14242c";
@@ -2340,6 +2797,11 @@ function wrapText(text, x, y, maxWidth, lineHeight) {
 
 function drawMissionScene(theme) {
   const mission = getActiveMission();
+  if (mission.type !== "grocery") {
+    drawLessonMissionScene(theme, mission);
+    return;
+  }
+
   const stall = getMissionStallPosition(mission);
   drawGround(theme);
 
@@ -2390,6 +2852,261 @@ function drawMissionScene(theme) {
     drawGroceryCart(mission);
   }
 
+  ctx.restore();
+}
+
+function drawLessonMissionScene(theme, mission) {
+  drawGround(theme);
+  ctx.save();
+  applyWorldTransform();
+  drawLessonPlayMat(mission);
+
+  if (mission.path) {
+    drawMissionPath(mission);
+  }
+
+  if (mission.type === "numberParking") {
+    drawNumberParkingScene(mission);
+  } else if (mission.type === "colorDelivery") {
+    drawColorDeliveryScene(mission);
+  } else if (mission.type === "arrowFollow") {
+    drawArrowMissionScene(mission);
+  } else if (mission.type === "stopGo") {
+    drawStopGoMissionScene(mission);
+  } else if (mission.type === "maze") {
+    drawMazeMissionScene(mission);
+  } else if (mission.type === "nameTrace") {
+    drawNameTraceLetters(mission);
+  }
+
+  drawCurrentMissionTarget(mission);
+  ctx.restore();
+}
+
+function drawLessonPlayMat(mission) {
+  const bounds = mission.bounds || { minX: -900, maxX: 900, minY: -3000, maxY: 900 };
+  ctx.fillStyle = "rgba(245, 251, 255, 0.08)";
+  roundedRect(bounds.minX - 120, bounds.minY - 120, bounds.maxX - bounds.minX + 240, bounds.maxY - bounds.minY + 240, 32);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.14)";
+  ctx.lineWidth = 8;
+  roundedRect(bounds.minX - 84, bounds.minY - 84, bounds.maxX - bounds.minX + 168, bounds.maxY - bounds.minY + 168, 28);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(15,21,27,0.34)";
+  roundedRect(bounds.minX + 30, bounds.maxY - 170, 440, 96, 12);
+  ctx.fill();
+  ctx.fillStyle = "#ffd35c";
+  ctx.font = "900 32px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("START", bounds.minX + 58, bounds.maxY - 110);
+}
+
+function drawMissionPath(mission) {
+  const points = mission.path || [];
+  if (points.length < 2) {
+    return;
+  }
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#2f383d";
+  ctx.lineWidth = mission.type === "nameTrace" ? 128 : 154;
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) {
+      ctx.moveTo(point.x, point.y);
+    } else {
+      ctx.lineTo(point.x, point.y);
+    }
+  });
+  ctx.stroke();
+
+  ctx.strokeStyle = mission.color || "#58d6ff";
+  ctx.lineWidth = mission.type === "nameTrace" ? 18 : 16;
+  ctx.setLineDash([42, 30]);
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) {
+      ctx.moveTo(point.x, point.y);
+    } else {
+      ctx.lineTo(point.x, point.y);
+    }
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  for (let i = 0; i < points.length; i += 1) {
+    const point = points[i];
+    const done = i <= gameState.missionProgress;
+    ctx.fillStyle = done ? "#66d36e" : "rgba(245,251,255,0.74)";
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, done ? 24 : 18, 0, TWO_PI);
+    ctx.fill();
+  }
+}
+
+function drawCurrentMissionTarget(mission) {
+  let target = null;
+  if (mission.path) {
+    target = mission.path[Math.min(gameState.missionProgress + 1, mission.path.length - 1)];
+  } else if (mission.type === "numberParking") {
+    target = getNumberParkingSpaces().find((space) => space.number === mission.targetNumber);
+  } else if (mission.type === "colorDelivery") {
+    target = gameState.missionCarryItem
+      ? getColorGaragePositions().find((item) => item.key === mission.targetColor)
+      : getColorPickupPosition(mission);
+  }
+  if (!target) {
+    return;
+  }
+  const pulse = 0.5 + Math.sin(performance.now() * 0.01) * 0.22;
+  ctx.strokeStyle = `rgba(255, 211, 92, ${pulse})`;
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, 96 + pulse * 26, 0, TWO_PI);
+  ctx.stroke();
+}
+
+function drawNumberParkingScene(mission) {
+  ctx.fillStyle = "#596266";
+  roundedRect(-550, -1120, 1100, 720, 22);
+  ctx.fill();
+  ctx.font = "900 58px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  for (const space of getNumberParkingSpaces()) {
+    const active = space.number === mission.targetNumber;
+    ctx.strokeStyle = active ? "#ffd35c" : "#f5fbff";
+    ctx.lineWidth = active ? 12 : 7;
+    roundedRect(space.x - 78, space.y - 106, 156, 212, 10);
+    ctx.stroke();
+    ctx.fillStyle = active ? "#ffd35c" : "#f5fbff";
+    ctx.fillText(`${space.number}`, space.x, space.y + 20);
+  }
+}
+
+function drawColorDeliveryScene(mission) {
+  const pickup = getColorPickupPosition(mission);
+  ctx.fillStyle = "#334047";
+  roundedRect(pickup.x - 190, pickup.y - 110, 380, 220, 18);
+  ctx.fill();
+  ctx.fillStyle = "#ff4d4d";
+  roundedRect(pickup.x - 52, pickup.y - 50, 104, 100, 12);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 28px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("PICK UP", pickup.x, pickup.y + 94);
+
+  for (const garage of getColorGaragePositions()) {
+    const active = garage.key === mission.targetColor;
+    ctx.fillStyle = garage.color;
+    roundedRect(garage.x - 160, garage.y - 120, 320, 240, 16);
+    ctx.fill();
+    ctx.fillStyle = "rgba(15,21,27,0.42)";
+    roundedRect(garage.x - 108, garage.y - 30, 216, 112, 10);
+    ctx.fill();
+    ctx.strokeStyle = active ? "#ffd35c" : "rgba(255,255,255,0.65)";
+    ctx.lineWidth = active ? 12 : 5;
+    roundedRect(garage.x - 162, garage.y - 122, 324, 244, 18);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 32px Arial, Helvetica, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(garage.label, garage.x, garage.y - 54);
+  }
+
+  if (gameState.missionCarryItem) {
+    const playerWorld = getPlayerWorld();
+    ctx.fillStyle = "#ff4d4d";
+    roundedRect(playerWorld.x - 36, playerWorld.y - 112, 72, 58, 8);
+    ctx.fill();
+  }
+}
+
+function drawArrowMissionScene(mission) {
+  const points = mission.path || [];
+  for (let i = 1; i < points.length; i += 1) {
+    const point = points[i];
+    drawArrowGate(point.x, point.y, point.arrow || "up", i <= gameState.missionProgress);
+  }
+}
+
+function drawArrowGate(x, y, direction, done) {
+  ctx.save();
+  ctx.translate(x, y);
+  const rotation = { up: 0, right: Math.PI / 2, down: Math.PI, left: -Math.PI / 2 }[direction] || 0;
+  ctx.rotate(rotation);
+  ctx.fillStyle = done ? "#66d36e" : "#ffd35c";
+  ctx.beginPath();
+  ctx.moveTo(0, -64);
+  ctx.lineTo(58, 20);
+  ctx.lineTo(22, 20);
+  ctx.lineTo(22, 72);
+  ctx.lineTo(-22, 72);
+  ctx.lineTo(-22, 20);
+  ctx.lineTo(-58, 20);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawStopGoMissionScene(mission) {
+  for (const light of mission.lights) {
+    ctx.fillStyle = "#1b2227";
+    roundedRect(light.x - 68, light.y - 132, 136, 264, 18);
+    ctx.fill();
+    for (const item of [
+      { color: "#ff3131", y: -72, on: !gameState.missionLightGreen },
+      { color: "#ffd35c", y: 0, on: false },
+      { color: "#36d16f", y: 72, on: gameState.missionLightGreen },
+    ]) {
+      ctx.globalAlpha = item.on ? 1 : 0.32;
+      ctx.fillStyle = item.color;
+      ctx.beginPath();
+      ctx.arc(light.x, light.y + item.y, 34, 0, TWO_PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  const finish = mission.path[mission.path.length - 1];
+  ctx.fillStyle = "#ffd35c";
+  ctx.font = "900 42px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("FINISH", finish.x, finish.y - 104);
+}
+
+function drawMazeMissionScene(mission) {
+  const points = mission.path || [];
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 180;
+  ctx.lineCap = "square";
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#ffd35c";
+  ctx.beginPath();
+  const finish = points[points.length - 1];
+  for (let i = 0; i < 5; i += 1) {
+    const angle = -Math.PI / 2 + i * (TWO_PI / 5);
+    const next = angle + Math.PI / 5;
+    ctx.lineTo(finish.x + Math.cos(angle) * 88, finish.y + Math.sin(angle) * 88);
+    ctx.lineTo(finish.x + Math.cos(next) * 42, finish.y + Math.sin(next) * 42);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawNameTraceLetters(mission) {
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.16)";
+  ctx.font = "900 380px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(mission.nameText || "TOMMY", 190, 330);
   ctx.restore();
 }
 
@@ -2512,12 +3229,7 @@ function drawMissionHud() {
     return;
   }
   const mission = getActiveMission();
-  const messages = {
-    driveToStore: "Take the exit to Grocery Pickup",
-    findStall: `Park in stall ${gameState.missionStall}`,
-    loading: "Wait for the cart to reach your car",
-    returnHome: "Groceries loaded. Return to home base",
-  };
+  const message = getMissionHudMessage(mission);
   ctx.save();
   ctx.fillStyle = "rgba(15,21,27,0.76)";
   roundedRect(24, Math.max(78, height - 104), Math.min(470, width - 48), 76, 8);
@@ -2528,16 +3240,59 @@ function drawMissionHud() {
   ctx.fillText(mission.title, 42, Math.max(106, height - 70));
   ctx.fillStyle = "#ffd35c";
   ctx.font = "800 16px Arial, Helvetica, sans-serif";
-  ctx.fillText(messages[gameState.missionStep] || "", 42, Math.max(130, height - 46));
+  ctx.fillText(message, 42, Math.max(130, height - 46));
 
   if (gameState.missionStep === "findStall" || gameState.missionNoticeTimer > 0) {
     const flash = gameState.missionStep === "findStall" ? 0.42 + Math.sin(performance.now() * 0.012) * 0.28 : 0.52;
     ctx.textAlign = "center";
     ctx.fillStyle = `rgba(255, 211, 92, ${flash})`;
     ctx.font = `900 ${Math.min(82, width * 0.14)}px Arial, Helvetica, sans-serif`;
-    ctx.fillText(`STALL ${gameState.missionStall}`, width / 2, height * 0.2);
+    ctx.fillText(getMissionFlashMessage(mission), width / 2, height * 0.2);
+  }
+  if (gameState.missionMistakeTimer > 0) {
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ff5b5b";
+    ctx.font = `900 ${Math.min(58, width * 0.1)}px Arial, Helvetica, sans-serif`;
+    ctx.fillText("STOP ON RED", width / 2, height * 0.27);
   }
   ctx.restore();
+}
+
+function getMissionHudMessage(mission) {
+  if (mission.type === "grocery") {
+    return {
+      driveToStore: "Take the exit to Grocery Pickup",
+      findStall: `Park in stall ${gameState.missionStall}`,
+      loading: "Wait for the cart to reach your car",
+      returnHome: "Groceries loaded. Return to home base",
+    }[gameState.missionStep] || "";
+  }
+  if (mission.type === "numberParking") {
+    return `Park in number ${mission.targetNumber}`;
+  }
+  if (mission.type === "colorDelivery") {
+    return gameState.missionCarryItem ? "Drive red to the red garage" : "Pick up the red package";
+  }
+  if (mission.type === "stopGo") {
+    return gameState.missionLightGreen ? "Green light: go" : "Red light: stop";
+  }
+  if (mission.path) {
+    return `Checkpoint ${Math.min(gameState.missionProgress + 1, mission.path.length - 1)}/${mission.path.length - 1}`;
+  }
+  return getMissionPrompt(mission);
+}
+
+function getMissionFlashMessage(mission) {
+  if (mission.type === "grocery") {
+    return `STALL ${gameState.missionStall}`;
+  }
+  if (mission.type === "numberParking") {
+    return `NUMBER ${mission.targetNumber}`;
+  }
+  if (mission.type === "stopGo") {
+    return gameState.missionLightGreen ? "GO" : "STOP";
+  }
+  return getMissionPrompt(mission).toUpperCase();
 }
 
 function drawRaceHud() {
@@ -2698,6 +3453,23 @@ function drawLotLine(y, label) {
   ctx.restore();
 }
 
+function drawBossVictoryHud() {
+  if (gameState.phase !== "bossVictory") {
+    return;
+  }
+  const remaining = Math.max(0, Math.ceil(gameState.bossVictoryDuration - gameState.bossVictoryTimer));
+  const pulse = 0.55 + Math.sin(performance.now() * 0.011) * 0.24;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = `rgba(255, 211, 92, ${pulse})`;
+  ctx.font = `900 ${Math.min(72, width * 0.12)}px Arial, Helvetica, sans-serif`;
+  ctx.fillText("BOSS SMASHED!", width / 2, Math.max(120, height * 0.18));
+  ctx.fillStyle = "#f5fbff";
+  ctx.font = `900 ${Math.min(26, width * 0.045)}px Arial, Helvetica, sans-serif`;
+  ctx.fillText(`Victory celebration ${remaining}`, width / 2, Math.max(160, height * 0.18 + 42));
+  ctx.restore();
+}
+
 function drawBossArena(theme) {
   const limit = getCurrentLevel().boss.type === "final" ? FINAL_ARENA_LIMIT : ARENA_LIMIT;
   ctx.fillStyle = theme.night > 0.55 ? "#1f2729" : "#475154";
@@ -2741,6 +3513,50 @@ function drawBosses() {
     ctx.restore();
   }
   ctx.restore();
+}
+
+function drawBossDebris() {
+  if (!bossDebris.length) {
+    return;
+  }
+  ctx.save();
+  applyWorldTransform();
+  for (const piece of bossDebris) {
+    const fade = clamp(1 - piece.age / piece.life, 0, 1);
+    ctx.save();
+    ctx.translate(piece.x, piece.y);
+    ctx.rotate(piece.angle);
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    if (piece.shape === "wheel") {
+      ctx.beginPath();
+      ctx.ellipse(8, 10, piece.width * 0.48, piece.height * 0.48, 0, 0, TWO_PI);
+      ctx.fill();
+      ctx.fillStyle = piece.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, piece.width * 0.5, piece.height * 0.5, 0, 0, TWO_PI);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.lineWidth = Math.max(4, piece.width * 0.08);
+      ctx.stroke();
+      ctx.fillStyle = "#818a90";
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.min(piece.width, piece.height) * 0.18, 0, TWO_PI);
+      ctx.fill();
+    } else {
+      roundedRect(-piece.width * 0.5 + 8, -piece.height * 0.5 + 10, piece.width, piece.height, Math.min(14, piece.width * 0.18));
+      ctx.fill();
+      ctx.fillStyle = piece.color;
+      roundedRect(-piece.width * 0.5, -piece.height * 0.5, piece.width, piece.height, Math.min(14, piece.width * 0.18));
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      roundedRect(-piece.width * 0.28, -piece.height * 0.32, piece.width * 0.56, piece.height * 0.18, 6);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 function drawBossShape(boss) {
@@ -3908,6 +4724,45 @@ function playExplosion(power) {
   crackle.start(now);
   blast.stop(now + 0.52);
   crackle.stop(now + 0.28);
+}
+
+function playBossVictoryMusic() {
+  if (!audio || !audioEnabled || audio.context.state === "closed") {
+    return;
+  }
+  const now = audio.context.currentTime;
+  const notes = [523.25, 659.25, 783.99, 1046.5, 987.77, 783.99, 880, 1046.5];
+  const bassNotes = [130.81, 164.81, 196, 261.63];
+  const beat = 0.38;
+  const total = gameState.bossVictoryDuration;
+
+  for (let t = 0; t < total; t += beat) {
+    const noteIndex = Math.floor(t / beat) % notes.length;
+    const lead = audio.context.createOscillator();
+    const leadGain = audio.context.createGain();
+    lead.type = noteIndex % 2 ? "square" : "triangle";
+    lead.frequency.setValueAtTime(notes[noteIndex], now + t);
+    lead.frequency.exponentialRampToValueAtTime(notes[noteIndex] * 1.015, now + t + beat * 0.55);
+    leadGain.gain.setValueAtTime(0.001, now + t);
+    leadGain.gain.exponentialRampToValueAtTime(0.09, now + t + 0.035);
+    leadGain.gain.exponentialRampToValueAtTime(0.001, now + t + beat * 0.9);
+    lead.connect(leadGain).connect(audio.master);
+    lead.start(now + t);
+    lead.stop(now + t + beat);
+
+    if (noteIndex % 2 === 0) {
+      const bass = audio.context.createOscillator();
+      const bassGain = audio.context.createGain();
+      bass.type = "sawtooth";
+      bass.frequency.setValueAtTime(bassNotes[Math.floor(t / (beat * 2)) % bassNotes.length], now + t);
+      bassGain.gain.setValueAtTime(0.001, now + t);
+      bassGain.gain.exponentialRampToValueAtTime(0.07, now + t + 0.05);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + t + beat * 1.65);
+      bass.connect(bassGain).connect(audio.master);
+      bass.start(now + t);
+      bass.stop(now + t + beat * 1.7);
+    }
+  }
 }
 
 function playBoostSound() {
